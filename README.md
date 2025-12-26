@@ -16,6 +16,8 @@ Children can install the app, browse available courses, choose one, and start le
 
 ## 🏗️ Architecture
 
+**Version 2.0 - Vercel Deployment with SSE Transport**
+
 ```
 ┌──────────────────────────────────────┐
 │  CHATGPT APPS SDK                    │
@@ -27,17 +29,24 @@ Children can install the app, browse available courses, choose one, and start le
 │  ├─ Interactive Exercises           │
 │  └─ Progress Dashboard              │
 └──────────────────────────────────────┘
+              ↕️ HTTPS/SSE
+┌──────────────────────────────────────┐
+│  VERCEL (Serverless Functions)       │
+├──────────────────────────────────────┤
+│  🚀 HTTP Server (Express)            │
+│  ├─ /api/mcp (SSE endpoint)         │
+│  ├─ /health (health check)          │
+│  └─ /* (static files)               │
+└──────────────────────────────────────┘
               ↕️
 ┌──────────────────────────────────────┐
-│  MCP SERVER (Backend Logic)          │
+│  MCP SERVER (SSE Transport)          │
 ├──────────────────────────────────────┤
 │  🛠️ Tools:                           │
 │  ├─ getCourses()                    │
 │  ├─ getCourse(id)                   │
 │  ├─ getLesson(courseId, lessonId)  │
-│  ├─ checkAnswer(lessonId, answer)  │
-│  ├─ saveProgress(lessonId)          │
-│  └─ getProgress()                   │
+│  └─ checkAnswer(lessonId, answer)  │
 └──────────────────────────────────────┘
               ↕️
 ┌──────────────────────────────────────┐
@@ -99,36 +108,42 @@ learningkids-ai/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ installed
+- Node.js 20+ installed
 - ChatGPT Plus subscription (for Apps SDK access)
-- Basic knowledge of deploying to Railway/Render (optional for development)
+- GitHub account (for deployment)
+- Vercel account (free tier works)
 
 ### Local Development
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url>
+git clone https://github.com/franorzabal-hub/learningkids-ai.git
 cd learningkids-ai
 
 # 2. Install MCP server dependencies
 cd mcp-server
 npm install
 
-# 3. Start MCP server locally
+# 3. Start HTTP server with SSE transport
 npm start
 
-# 4. Expose server publicly (for ChatGPT to access)
-npx ngrok http 3000
-
-# 5. Configure in ChatGPT
-# - Go to ChatGPT > Settings > Developer Mode
-# - Add MCP Connector with ngrok URL
-# - Point to web-component/index.html
+# 4. Test locally
+# Server runs on http://localhost:3000
+# - Health check: http://localhost:3000/health
+# - Web UI: http://localhost:3000
+# - MCP endpoint: http://localhost:3000/api/mcp
 ```
 
-### Production Deployment
+### Production Deployment (Vercel)
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
+**Quick Deploy:**
+1. Fork this repo on GitHub
+2. Go to [vercel.com/new](https://vercel.com/new)
+3. Import your forked repo
+4. Click "Deploy"
+5. Done! Get your URL and configure in ChatGPT
+
+See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployment instructions.
 
 ## 📚 Documentation
 
@@ -160,10 +175,12 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instruction
 ## 🛠️ Technology Stack
 
 - **Frontend**: Vanilla React 18 (via CDN), HTML5, CSS3
-- **Backend**: Node.js 20+, MCP SDK (@modelcontextprotocol/sdk)
+- **Backend**: Node.js 20+, Express 4.19+, MCP SDK (@modelcontextprotocol/sdk)
+- **Transport**: SSE (Server-Sent Events) for Vercel compatibility
 - **Storage**: JSON files (content), ChatGPT Widget State (user progress)
-- **Hosting**: Railway/Render (free tier sufficient for MVP)
+- **Hosting**: Vercel (serverless, free tier)
 - **Distribution**: ChatGPT App Store (when submitted)
+- **Version**: 2.0.0 (SSE Transport)
 
 ## 📊 Project Status
 
