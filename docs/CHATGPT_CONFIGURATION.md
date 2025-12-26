@@ -65,7 +65,7 @@ Use `mcp-remote` to proxy HTTP into stdio for older clients.
    ```json
    {
      "name": "LearnKids AI",
-     "url": "https://learningkids-ai.vercel.app/api/mcp",
+     "url": "https://learningkids-ai.vercel.app/api",
      "description": "Interactive learning platform for kids"
    }
    ```
@@ -104,7 +104,7 @@ If using Claude Desktop or another MCP client that requires stdio:
          "args": [
            "-y",
            "mcp-remote",
-           "https://learningkids-ai.vercel.app/api/mcp"
+           "https://learningkids-ai.vercel.app/api"
          ]
        }
      }
@@ -122,7 +122,7 @@ If using Claude Desktop or another MCP client that requires stdio:
 Generic configuration for MCP-compatible clients:
 
 **Connection Type:** HTTP/SSE
-**Endpoint:** `https://learningkids-ai.vercel.app/api/mcp`
+**Endpoint:** `https://learningkids-ai.vercel.app/api`
 **Protocol:** Server-Sent Events (SSE)
 **Authentication:** None (public endpoint)
 **Max Duration:** 60 seconds per request
@@ -207,12 +207,12 @@ Expected: Validation result with feedback
    ```
 
 2. Check endpoint URL is correct (no trailing slash):
-   ✅ `https://learningkids-ai.vercel.app/api/mcp`
-   ❌ `https://learningkids-ai.vercel.app/api/mcp/`
+   ✅ `https://learningkids-ai.vercel.app/api`
+   ❌ `https://learningkids-ai.vercel.app/api/`
 
 3. Test with `mcp-remote`:
    ```bash
-   npx -y mcp-remote https://learningkids-ai.vercel.app/api/mcp
+   npx -y mcp-remote https://learningkids-ai.vercel.app/api
    ```
 
 ---
@@ -246,17 +246,18 @@ Expected: Validation result with feedback
 
 ### 405 Method Not Allowed
 
-**Problem:** Getting 405 error when accessing `/api/mcp`
+**Problem:** Getting 405 error when accessing `/api`
 
 **Explanation:** This is expected for simple GET requests without SSE connection.
 
 **Solution:** This is normal! MCP clients handle the SSE connection automatically. If testing manually:
 ```bash
 # This will show 405 (expected)
-curl -I https://learningkids-ai.vercel.app/api/mcp
+curl -I https://learningkids-ai.vercel.app/api
 
-# This establishes SSE connection (correct)
-curl -N https://learningkids-ai.vercel.app/api/mcp
+# MCP clients connect via the transport endpoint (e.g., /api/sse)
+# Use mcp-remote for testing:
+npx -y mcp-remote https://learningkids-ai.vercel.app/api
 ```
 
 ---
@@ -342,8 +343,8 @@ curl -N https://learningkids-ai.vercel.app/api/mcp
 
 - **Production:** `https://learningkids-ai.vercel.app`
 - **Health Check:** `https://learningkids-ai.vercel.app/api/health`
-- **MCP Endpoint:** `https://learningkids-ai.vercel.app/api/mcp`
-- **API Info:** `https://learningkids-ai.vercel.app/api`
+- **MCP Endpoint:** `https://learningkids-ai.vercel.app/api`
+- **API Info:** `https://learningkids-ai.vercel.app/api` (same as MCP endpoint)
 - **GitHub:** `https://github.com/franorzabal-hub/learningkids-ai`
 - **Vercel Dashboard:** `https://vercel.com/francisco-orzabals-projects/learningkids-ai`
 

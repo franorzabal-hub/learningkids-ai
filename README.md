@@ -65,8 +65,10 @@ learningkids-ai/
 ├── docs/
 │   ├── ARCHITECTURE.md          # Detailed architecture documentation
 │   ├── APPS_SDK_GUIDE.md        # Apps SDK best practices & patterns
+│   ├── CHATGPT_CONFIGURATION.md # ChatGPT setup instructions
 │   ├── CONTENT_GUIDE.md         # Guidelines for creating educational content
-│   ├── DEPLOYMENT.md            # Deployment instructions
+│   ├── DEPLOYMENT_VERCEL.md     # Vercel deployment instructions
+│   ├── LEARNINGS.md             # Knowledge base and lessons learned
 │   ├── PROGRESS_TRACKER.md      # Project progress and milestones
 │   └── TESTING.md               # Testing strategy and checklist
 ├── mcp-server/

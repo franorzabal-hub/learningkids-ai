@@ -342,7 +342,7 @@ const handler = createMcpHandler(
     },
   },
   {
-    basePath: '/api/mcp',
+    basePath: '/api',
     maxDuration: 60,
     verboseLogs: true,
   }

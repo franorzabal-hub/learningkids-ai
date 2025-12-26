@@ -21,8 +21,8 @@ This MCP server exposes educational tools for children through ChatGPT:
 - Lazy data loading for optimal cold starts
 
 **Files:**
-- `/api/mcp.js` - MCP server implementation (production)
-- `index.js` - Legacy stdio server (local development only)
+- `/api/[transport].js` - MCP server implementation (production)
+- `index.js` - Stdio server for local development
 - `data/` - Educational content (courses and lessons)
 
 ## Local Development
@@ -40,11 +40,13 @@ node index.js
 
 ## Production Deployment
 
-The MCP server is deployed to Vercel as `/api/mcp`:
+The MCP server is deployed to Vercel at `/api`:
 
 ```
-https://learningkids-ai.vercel.app/api/mcp
+https://learningkids-ai.vercel.app/api
 ```
+
+The handler uses dynamic routing with `[transport].js` pattern, which automatically derives SSE endpoints.
 
 See [../docs/DEPLOYMENT_VERCEL.md](../docs/DEPLOYMENT_VERCEL.md) for deployment details.
 
@@ -355,7 +357,7 @@ When adding new content:
 ## Resources
 
 - **Production URL**: https://learningkids-ai.vercel.app
-- **MCP Endpoint**: https://learningkids-ai.vercel.app/api/mcp
+- **MCP Endpoint**: https://learningkids-ai.vercel.app/api
 - **Vercel Dashboard**: https://vercel.com/francisco-orzabals-projects/learningkids-ai
 - **Documentation**: See `/docs` folder
 - **ChatGPT Config**: See `docs/CHATGPT_CONFIGURATION.md`

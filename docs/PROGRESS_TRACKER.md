@@ -17,7 +17,7 @@ LearnKids AI v2.0 is **fully deployed and operational** on Vercel.
 ### Production URLs
 
 - **Application**: https://learningkids-ai.vercel.app
-- **MCP Endpoint**: https://learningkids-ai.vercel.app/api/mcp
+- **MCP Endpoint**: https://learningkids-ai.vercel.app/api
 - **Health Check**: https://learningkids-ai.vercel.app/api/health
 - **GitHub Repo**: https://github.com/franorzabal-hub/learningkids-ai
 - **Vercel Dashboard**: https://vercel.com/francisco-orzabals-projects/learningkids-ai
@@ -294,7 +294,7 @@ LearnKids AI v2.0 is **fully deployed and operational** on Vercel.
 
 ### Production
 - **Live App**: https://learningkids-ai.vercel.app
-- **MCP Endpoint**: https://learningkids-ai.vercel.app/api/mcp
+- **MCP Endpoint**: https://learningkids-ai.vercel.app/api
 - **Health Check**: https://learningkids-ai.vercel.app/api/health
 
 ### Development
