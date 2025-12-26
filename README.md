@@ -151,8 +151,9 @@ See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployme
 |----------|-------------|
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, and technical decisions |
 | [APPS_SDK_GUIDE.md](docs/APPS_SDK_GUIDE.md) | Apps SDK best practices from official docs |
+| [CHATGPT_CONFIGURATION.md](docs/CHATGPT_CONFIGURATION.md) | **⭐ How to connect ChatGPT to your deployed MCP server** |
 | [CONTENT_GUIDE.md](docs/CONTENT_GUIDE.md) | How to create age-appropriate educational content |
-| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step deployment guide |
+| [DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) | Vercel deployment guide (v2.0 with SSE transport) |
 | [PROGRESS_TRACKER.md](docs/PROGRESS_TRACKER.md) | Development milestones and status |
 | [TESTING.md](docs/TESTING.md) | Testing strategy and QA checklist |
 
