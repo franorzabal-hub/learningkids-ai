@@ -387,37 +387,34 @@ function createMcpServer() {
 // ============================================================================
 
 async function handleSseRequest(req, res, url) {
-  // Extract sessionId from query params if provided by client
-  let sessionId = url.searchParams.get('sessionId');
-
-  if (!sessionId) {
-    // Generate a session ID if client didn't provide one
-    sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  console.log(`[LearnKids] New SSE connection - sessionId: ${sessionId}`);
+  console.log('[LearnKids] New SSE connection request');
 
   const server = createMcpServer();
   const transport = new SSEServerTransport(POST_PATH, res);
 
   try {
     await server.connect(transport);
-    console.log(`[LearnKids] SSE connection established for session: ${sessionId}`);
+    console.log('[LearnKids] SSE connection established');
 
-    // Store the server instance (not transport) for this session
-    sessions.set(sessionId, { server, transport, createdAt: Date.now() });
+    // Note: ChatGPT generates its own sessionId and includes it in POST requests
+    // We can't know it ahead of time, so we store this session globally and match later
+    // Store with a temporary key that we'll update when first POST arrives
+    const tempKey = `temp-${Date.now()}`;
+    sessions.set(tempKey, { server, transport, createdAt: Date.now(), temp: true });
+
+    console.log(`[LearnKids] Stored session with temp key: ${tempKey}`);
 
     // Clean up session when connection closes
     req.on('close', () => {
-      console.log(`[LearnKids] SSE connection closed for ${sessionId}`);
-      sessions.delete(sessionId);
+      console.log(`[LearnKids] SSE connection closed for ${tempKey}`);
+      sessions.delete(tempKey);
     });
 
     // Also clean up after 1 hour of inactivity
     setTimeout(() => {
-      if (sessions.has(sessionId)) {
-        console.log(`[LearnKids] Cleaning up inactive session: ${sessionId}`);
-        sessions.delete(sessionId);
+      if (sessions.has(tempKey)) {
+        console.log(`[LearnKids] Cleaning up inactive session: ${tempKey}`);
+        sessions.delete(tempKey);
       }
     }, 3600000); // 1 hour
   } catch (error) {
@@ -445,26 +442,29 @@ async function handlePostMessage(req, res, url) {
     // Parse the JSON-RPC message
     const message = JSON.parse(body);
 
-    // Find the session
-    const session = sessions.get(sessionId);
+    // Try to find session by exact sessionId first
+    let session = sessions.get(sessionId);
 
     if (!session) {
-      console.error(`[LearnKids] Session not found: ${sessionId}`);
-      console.log('[LearnKids] Active sessions:', Array.from(sessions.keys()));
+      // Session not found - look for any temp session and promote it
+      console.log(`[LearnKids] Session ${sessionId} not found, searching for temp session...`);
 
-      // If no session found, try to match with any session (fallback for testing)
-      if (sessions.size > 0) {
-        const fallbackSessionId = Array.from(sessions.keys())[0];
-        console.log(`[LearnKids] Using fallback session: ${fallbackSessionId}`);
-        const fallbackSession = sessions.get(fallbackSessionId);
-
-        // Call handleMessage on the transport
-        await fallbackSession.transport.handleMessage(message);
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ received: true }));
-        return;
+      for (const [key, value] of sessions.entries()) {
+        if (value.temp) {
+          console.log(`[LearnKids] Promoting temp session ${key} to ${sessionId}`);
+          // Promote this temp session to the real sessionId
+          sessions.delete(key);
+          value.temp = false;
+          sessions.set(sessionId, value);
+          session = value;
+          break;
+        }
       }
+    }
+
+    if (!session) {
+      console.error(`[LearnKids] No session available for: ${sessionId}`);
+      console.log('[LearnKids] Active sessions:', Array.from(sessions.keys()));
 
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
