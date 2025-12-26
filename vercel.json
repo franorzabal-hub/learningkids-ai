@@ -1,14 +1,7 @@
 {
   "version": 2,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api"
-    }
-  ],
   "functions": {
-    "api/index.js": {
-      "memory": 1024,
+    "api/**/*.js": {
       "maxDuration": 60,
       "includeFiles": "mcp-server/data/**"
     }
