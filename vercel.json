@@ -8,12 +8,12 @@
   },
   "rewrites": [
     {
-      "source": "/mcp/:path*",
-      "destination": "/api/:path*"
+      "source": "/mcp/messages",
+      "destination": "/api/mcp/messages"
     },
     {
       "source": "/mcp",
-      "destination": "/api"
+      "destination": "/api/mcp"
     }
   ]
 }
