@@ -4,8 +4,8 @@
  * Persistent HTTP server with SSE support for ChatGPT Apps SDK
  * Based on OpenAI's official pizzaz_server_node example
  *
- * Compatible with: Cloud Run, Railway, Fly.io
- * @version 2.1.0
+ * Compatible with: Google Cloud Run
+ * @version 2.2.0
  */
 
 import { createServer } from 'node:http';
@@ -26,6 +26,21 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 8000;
 const SSE_PATH = '/mcp';
 const POST_PATH = '/mcp/messages';
+const WEB_COMPONENT_DIR = path.join(__dirname, 'web-component');
+
+// MIME types for static files
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+};
 
 // Session management for SSE connections
 const sessions = new Map();
@@ -79,6 +94,41 @@ function isValidCourseId(courseId) {
 }
 
 // ============================================================================
+// STATIC FILE SERVING
+// ============================================================================
+
+async function serveStaticFile(res, filePath) {
+  try {
+    // Security: prevent path traversal
+    const normalizedPath = path.normalize(filePath);
+    if (!normalizedPath.startsWith(WEB_COMPONENT_DIR)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
+
+    const data = await fs.readFile(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=3600',
+    });
+    res.end(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    } else {
+      console.error('[LearnKids] Error serving static file:', error);
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Internal Server Error');
+    }
+  }
+}
+
+// ============================================================================
 // MCP SERVER FACTORY
 // ============================================================================
 
@@ -86,7 +136,7 @@ function createMcpServer() {
   const server = new Server(
     {
       name: 'learningkids-server',
-      version: '2.1.0',
+      version: '2.2.0',
     },
     {
       capabilities: {
@@ -565,7 +615,7 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'healthy',
-      version: '2.1.0',
+      version: '2.2.0',
       server: process.env.K_SERVICE ? 'Cloud Run' : 'Railway',
       transport: 'SSE',
       mcp: 'enabled',
@@ -573,12 +623,12 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  // Root endpoint - info
-  if (req.method === 'GET' && url.pathname === '/') {
+  // API info endpoint
+  if (req.method === 'GET' && url.pathname === '/api') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       name: 'LearnKids AI',
-      version: '2.1.0',
+      version: '2.2.0',
       description: 'Interactive learning platform for kids',
       mcp: {
         endpoint: '/mcp',
@@ -589,9 +639,29 @@ const httpServer = createServer(async (req, res) => {
         health: '/health',
         mcp: '/mcp',
         mcpMessages: '/mcp/messages',
+        widget: '/',
       },
       documentation: 'https://github.com/franorzabal-hub/learningkids-ai',
     }));
+    return;
+  }
+
+  // Serve web component - root serves index.html
+  if (req.method === 'GET' && url.pathname === '/') {
+    await serveStaticFile(res, path.join(WEB_COMPONENT_DIR, 'index.html'));
+    return;
+  }
+
+  // Serve styles.css
+  if (req.method === 'GET' && url.pathname === '/styles.css') {
+    await serveStaticFile(res, path.join(WEB_COMPONENT_DIR, 'styles.css'));
+    return;
+  }
+
+  // Serve assets (images, etc.)
+  if (req.method === 'GET' && url.pathname.startsWith('/assets/')) {
+    const assetPath = path.join(WEB_COMPONENT_DIR, url.pathname);
+    await serveStaticFile(res, assetPath);
     return;
   }
 
@@ -605,7 +675,9 @@ httpServer.on('clientError', (err, socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`🎓 LearnKids AI MCP server listening on port ${PORT}`);
+  console.log(`  Widget: http://localhost:${PORT}/`);
   console.log(`  SSE stream: GET http://localhost:${PORT}${SSE_PATH}`);
   console.log(`  Message endpoint: POST http://localhost:${PORT}${POST_PATH}`);
   console.log(`  Health check: GET http://localhost:${PORT}/health`);
+  console.log(`  API info: GET http://localhost:${PORT}/api`);
 });

@@ -18,6 +18,7 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy application code
 COPY server.js ./
 COPY mcp-server ./mcp-server
+COPY web-component ./web-component
 
 # Cloud Run sets PORT environment variable
 ENV PORT=8080

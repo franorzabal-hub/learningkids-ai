@@ -1,8 +1,11 @@
-# 🏗️ Architecture Documentation
+# Architecture Documentation
 
 ## Overview
 
 LearnKids AI is a ChatGPT-native learning platform built using OpenAI's Apps SDK. This document describes the system architecture, data flows, and key technical decisions.
+
+**Version**: 2.2.0
+**Hosting**: Google Cloud Run (unified server)
 
 ## System Architecture
 
@@ -107,8 +110,8 @@ window.openai.setWidgetState({
 ### 2. MCP Server (Backend)
 
 **Technology**: Node.js 20+, MCP SDK
-**Purpose**: Expose app capabilities to ChatGPT
-**Location**: `mcp-server/index.js`
+**Purpose**: Expose app capabilities to ChatGPT, serve static files
+**Location**: `server.js` (root)
 
 #### Tool Definitions:
 
@@ -421,10 +424,10 @@ User can continue chatting while app stays visible (Fullscreen)
 **Decision**: Use Node.js instead of Python
 
 **Rationale**:
-- ✅ JavaScript everywhere (same language as frontend)
-- ✅ Faster JSON parsing (V8 engine)
-- ✅ Better async I/O for file reads
-- ✅ Easier deployment (Railway loves Node.js)
+- JavaScript everywhere (same language as frontend)
+- Faster JSON parsing (V8 engine)
+- Better async I/O for file reads
+- Easy deployment to Cloud Run
 
 **Note**: Could easily be rewritten in Python if needed
 

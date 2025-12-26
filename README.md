@@ -1,120 +1,110 @@
-# 🎓 LearnKids AI - Educational Platform for Children
+# LearnKids AI - Educational Platform for Children
 
 > A 100% automated learning management system (LMS) built with OpenAI's Apps SDK, designed for elementary school children (ages 7-12).
 
-## 📋 Project Overview
+## Project Overview
 
 **LearnKids AI** is a ChatGPT-native learning platform that provides:
-- 🎨 Interactive, visually-rich courses designed for children
-- 🤖 AI tutor available 24/7 for personalized help
-- 📊 Automatic progress tracking
-- ⭐ Gamification with stars and badges
-- 🚀 Zero-friction onboarding (no login required)
+- Interactive, visually-rich courses designed for children
+- AI tutor available 24/7 for personalized help
+- Automatic progress tracking
+- Gamification with stars and badges
+- Zero-friction onboarding (no login required)
 
 ### Core Value Proposition
 Children can install the app, browse available courses, choose one, and start learning immediately - all within ChatGPT, with an AI tutor that understands their progress and adapts explanations to their level.
 
-## 🏗️ Architecture
+## Architecture
 
-**Version 2.0 - Vercel Deployment with SSE Transport**
+**Version 2.2.0 - Cloud Run Unified Server**
 
 ```
 ┌──────────────────────────────────────┐
 │  CHATGPT APPS SDK                    │
 │  (User Interface Layer)              │
 ├──────────────────────────────────────┤
-│  📱 Web Component (React)            │
-│  ├─ Course Catalog (Inline)         │
-│  ├─ Lesson Viewer (Fullscreen)      │
-│  ├─ Interactive Exercises           │
-│  └─ Progress Dashboard              │
+│  Web Component (React)               │
+│  ├─ Course Catalog (Inline)          │
+│  ├─ Lesson Viewer (Fullscreen)       │
+│  ├─ Interactive Exercises            │
+│  └─ Progress Dashboard               │
 └──────────────────────────────────────┘
-              ↕️ HTTPS/SSE
+              ↕ HTTPS/SSE
 ┌──────────────────────────────────────┐
-│  VERCEL (Serverless Functions)       │
+│  GOOGLE CLOUD RUN                    │
+│  (Unified Server)                    │
 ├──────────────────────────────────────┤
-│  🚀 HTTP Server (Express)            │
-│  ├─ /api/mcp (SSE endpoint)         │
-│  ├─ /health (health check)          │
-│  └─ /* (static files)               │
+│  Node.js HTTP Server                 │
+│  ├─ / (Widget - index.html)          │
+│  ├─ /styles.css (static)             │
+│  ├─ /assets/* (static)               │
+│  ├─ /mcp (SSE endpoint)              │
+│  ├─ /mcp/messages (POST)             │
+│  ├─ /health (health check)           │
+│  └─ /api (server info)               │
 └──────────────────────────────────────┘
-              ↕️
+              ↕
 ┌──────────────────────────────────────┐
 │  MCP SERVER (SSE Transport)          │
 ├──────────────────────────────────────┤
-│  🛠️ Tools:                           │
-│  ├─ getCourses()                    │
-│  ├─ getCourse(id)                   │
-│  ├─ getLesson(courseId, lessonId)  │
-│  └─ checkAnswer(lessonId, answer)  │
+│  Tools:                              │
+│  ├─ get-courses                      │
+│  ├─ view-course-details              │
+│  ├─ start-lesson                     │
+│  └─ check-student-work               │
 └──────────────────────────────────────┘
-              ↕️
+              ↕
 ┌──────────────────────────────────────┐
 │  STORAGE                             │
 ├──────────────────────────────────────┤
-│  📚 Static JSON files (content)      │
-│  💾 ChatGPT Widget State (progress)  │
+│  Static JSON files (content)         │
+│  ChatGPT Widget State (progress)     │
 └──────────────────────────────────────┘
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 learningkids-ai/
-├── README.md                    # This file
-├── docs/
-│   ├── ARCHITECTURE.md          # Detailed architecture documentation
-│   ├── APPS_SDK_GUIDE.md        # Apps SDK best practices & patterns
-│   ├── CHATGPT_CONFIGURATION.md # ChatGPT setup instructions
-│   ├── CONTENT_GUIDE.md         # Guidelines for creating educational content
-│   ├── DEPLOYMENT_VERCEL.md     # Vercel deployment instructions
-│   ├── LEARNINGS.md             # Knowledge base and lessons learned
-│   └── TESTING.md               # Testing strategy and checklist
+├── server.js                   # Main HTTP server (MCP + static files)
+├── Dockerfile                  # Cloud Run container config
+├── package.json                # Node.js dependencies
 ├── mcp-server/
-│   ├── index.js                 # MCP server implementation
-│   ├── package.json             # Node.js dependencies
-│   ├── data/
-│   │   ├── courses.json         # Course catalog
-│   │   └── lessons/             # Lesson content by course
-│   │       └── python-kids.json
-│   └── README.md                # MCP server documentation
+│   └── data/
+│       ├── courses.json        # Course catalog
+│       └── lessons/
+│           └── python-kids.json
 ├── web-component/
-│   ├── index.html               # Main UI entry point
-│   ├── app.js                   # React application logic
-│   ├── styles.css               # Styles optimized for children
-│   ├── assets/
-│   │   └── images/              # Illustrations and icons
-│   └── README.md                # Web component documentation
-└── .gitignore
+│   ├── index.html              # Main UI (React)
+│   ├── styles.css              # Kid-friendly styles
+│   └── assets/                 # Images and icons
+└── docs/
+    ├── ARCHITECTURE.md         # System design
+    ├── APPS_SDK_GUIDE.md       # Apps SDK best practices
+    ├── CHATGPT_CONFIGURATION.md # ChatGPT setup
+    ├── CONTENT_GUIDE.md        # Educational content guidelines
+    └── TESTING.md              # Testing strategy
 ```
 
-## 🎯 MVP Scope (Week 1)
+## MVP Features
 
-### Included Features
-- ✅ 1 complete course: "Python for Kids" (5 lessons)
-- ✅ Course catalog with visual cards
-- ✅ Interactive lesson viewer
-- ✅ Code exercises with validation
-- ✅ Progress tracking (localStorage)
-- ✅ Kid-friendly UI with emojis and colors
-- ✅ AI tutor integration (ChatGPT context-aware)
+### Included
+- 1 complete course: "Python for Kids" (5 lessons)
+- Course catalog with visual cards
+- Interactive lesson viewer
+- Code exercises with validation
+- Progress tracking (ChatGPT Widget State)
+- Kid-friendly UI with emojis and colors
+- AI tutor integration (ChatGPT context-aware)
 
-### Not Included in MVP
-- ❌ Multiple courses (coming in v2)
-- ❌ Badges/achievements system (coming in v2)
-- ❌ Parent dashboard (coming in v3)
-- ❌ User authentication (not needed - ChatGPT handles identity)
-- ❌ Video content (text + code for MVP)
+### Planned for v2
+- Multiple courses
+- Badges/achievements system
+- Parent dashboard
 
-## 🚀 Quick Start
+## Quick Start
 
-### Deploy to Google Cloud Run ⭐ (Recommended)
-
-**Why Cloud Run?** Production-grade persistent container platform with:
-- ✅ No timeout limits (3600s configured) - perfect for SSE connections
-- ✅ Generous free tier (180,000 vCPU-seconds/month)
-- ✅ Auto-scaling from 0 to millions of requests
-- ✅ Full CLI control with `gcloud` for deployment and debugging
+### Deploy to Google Cloud Run
 
 **Prerequisites:**
 - Google Cloud account (free tier available)
@@ -125,7 +115,7 @@ learningkids-ai/
 # 1. Authenticate with Google Cloud
 gcloud auth login
 
-# 2. Create a new project
+# 2. Create a new project (or use existing)
 gcloud projects create learningkids-ai --name="LearnKids AI"
 
 # 3. Enable billing (required for Cloud Run free tier)
@@ -145,32 +135,6 @@ gcloud run deploy learningkids-ai \
   --project learningkids-ai
 ```
 
-**Live deployment**: `https://learningkids-ai-470541916594.us-central1.run.app`
-
-**ChatGPT Configuration URL**: `https://learningkids-ai-470541916594.us-central1.run.app/mcp`
-
----
-
-### Alternative: Deploy to Railway
-
-**Why Railway?** Simplest deployment with zero configuration.
-
-**Steps:**
-1. Go to [railway.app/new](https://railway.app/new)
-2. Click "Deploy from GitHub repo"
-3. Select `learningkids-ai`
-4. Click "Deploy" (Railway auto-detects Node.js)
-5. Go to Settings → Networking → "Generate Domain"
-6. Copy your URL and use `https://your-url.railway.app/mcp` for ChatGPT
-
----
-
-### Prerequisites
-- Node.js 20+ installed
-- ChatGPT Plus or higher (MCP confirmed working on Plus, Business, Enterprise, Education)
-- GitHub account (for deployment)
-- Railway account (free tier: $5/month credit) OR Vercel account
-
 ### Local Development
 
 ```bash
@@ -178,44 +142,38 @@ gcloud run deploy learningkids-ai \
 git clone https://github.com/franorzabal-hub/learningkids-ai.git
 cd learningkids-ai
 
-# 2. Install MCP server dependencies
-cd mcp-server
+# 2. Install dependencies
 npm install
 
-# 3. Start HTTP server with SSE transport
+# 3. Start server
 npm start
 
-# 4. Test locally
-# Server runs on http://localhost:3000
-# - Health check: http://localhost:3000/health
-# - Web UI: http://localhost:3000
-# - MCP endpoint: http://localhost:3000/api/mcp
+# 4. Test locally at http://localhost:8000
+#    - Widget: http://localhost:8000/
+#    - Health: http://localhost:8000/health
+#    - MCP: http://localhost:8000/mcp
 ```
 
-### Production Deployment (Vercel)
+## Production URLs
 
-**Quick Deploy:**
-1. Fork this repo on GitHub
-2. Go to [vercel.com/new](https://vercel.com/new)
-3. Import your forked repo
-4. Click "Deploy"
-5. Done! Get your URL and configure in ChatGPT
+| Endpoint | URL |
+|----------|-----|
+| Widget | https://learningkids-ai-470541916594.us-central1.run.app/ |
+| MCP Endpoint | https://learningkids-ai-470541916594.us-central1.run.app/mcp |
+| Health Check | https://learningkids-ai-470541916594.us-central1.run.app/health |
+| API Info | https://learningkids-ai-470541916594.us-central1.run.app/api |
 
-See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployment instructions.
-
-## 📚 Documentation
+## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, and technical decisions |
-| [APPS_SDK_GUIDE.md](docs/APPS_SDK_GUIDE.md) | Apps SDK best practices from official docs |
-| [CHATGPT_CONFIGURATION.md](docs/CHATGPT_CONFIGURATION.md) | **⭐ How to connect ChatGPT to your deployed MCP server** |
-| [CONTENT_GUIDE.md](docs/CONTENT_GUIDE.md) | How to create age-appropriate educational content |
-| [DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) | Vercel deployment guide (v2.0 with SSE transport) |
-| [LEARNINGS.md](docs/LEARNINGS.md) | **🧠 Knowledge base: errors solved, decisions made, lessons learned** |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design and technical decisions |
+| [APPS_SDK_GUIDE.md](docs/APPS_SDK_GUIDE.md) | Apps SDK best practices |
+| [CHATGPT_CONFIGURATION.md](docs/CHATGPT_CONFIGURATION.md) | How to connect ChatGPT to the MCP server |
+| [CONTENT_GUIDE.md](docs/CONTENT_GUIDE.md) | Creating age-appropriate content |
 | [TESTING.md](docs/TESTING.md) | Testing strategy and QA checklist |
 
-## 🎨 Design Principles
+## Design Principles
 
 ### For Children (Ages 7-12)
 1. **Visual First**: Use emojis, large fonts, bright colors
@@ -231,47 +189,35 @@ See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployme
 4. **Fail Gracefully**: Friendly error messages
 5. **Fast Loading**: Optimize for quick response times
 
-## 🛠️ Technology Stack
+## Technology Stack
 
-- **Frontend**: Vanilla React 18 (via CDN), HTML5, CSS3
-- **Backend**: Node.js 20+, Express 4.19+, MCP SDK (@modelcontextprotocol/sdk)
-- **Transport**: SSE (Server-Sent Events) for Vercel compatibility
-- **Storage**: JSON files (content), ChatGPT Widget State (user progress)
-- **Hosting**: Vercel (serverless, free tier)
-- **Distribution**: ChatGPT App Store (when submitted)
-- **Version**: 2.0.0 (SSE Transport)
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18 (CDN), HTML5, CSS3 |
+| Backend | Node.js 20+, MCP SDK |
+| Transport | SSE (Server-Sent Events) |
+| Storage | JSON files (content), ChatGPT Widget State (progress) |
+| Hosting | Google Cloud Run |
+| Version | 2.2.0 |
 
-## 📊 Project Status
+## Project Status
 
-**Current Phase**: ✅ Production Ready - MVP Complete
+**Current Phase**: Production Ready - MVP Complete
 
-**Version**: 2.1.0 (Cloud Run Persistent Server)
+**Version**: 2.2.0 (Cloud Run Unified Server)
 
-**Live Production URL**: https://learningkids-ai-470541916594.us-central1.run.app
-
-**Deployment Options**:
-- ⭐ **Google Cloud Run** (Production): Persistent containers, 3600s timeout, full CLI control
-- 🚂 **Railway**: Simple deployment, persistent connections
-- 🔧 **Vercel**: Serverless (60s timeout - not recommended for ChatGPT)
+**Live URL**: https://learningkids-ai-470541916594.us-central1.run.app
 
 **GitHub**: https://github.com/franorzabal-hub/learningkids-ai
 
-See [docs/LEARNINGS.md](docs/LEARNINGS.md) for technical decisions and troubleshooting.
-
-## 🤝 Contributing
+## Contributing
 
 This is a learning project built for educational purposes. Contributions welcome!
 
-## 📄 License
+## License
 
 MIT License - feel free to use this as a template for your own educational apps.
 
-## 🙏 Acknowledgments
-
-- Built with OpenAI's Apps SDK
-- Uses Model Context Protocol (MCP)
-- Inspired by Digital House and other coding bootcamps
-
 ---
 
-**Built with ❤️ for young learners everywhere**
+**Built with love for young learners everywhere**

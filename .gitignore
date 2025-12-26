@@ -35,16 +35,6 @@ tmp/
 temp/
 *.tmp
 
-# Package manager lock files (optional - uncomment if you want to ignore)
-# package-lock.json
-# yarn.lock
-
-# Railway
-.railway/
-
-# Vercel
-.vercel/
-
 # Testing
 coverage/
 .nyc_output/
@@ -52,4 +42,3 @@ coverage/
 # Misc
 *.bak
 *.orig
-.vercel
