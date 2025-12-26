@@ -2,7 +2,7 @@
 
 > Knowledge base capturing architectural decisions, errors solved, and lessons learned during development.
 
-**Last Updated**: 2025-12-26
+**Last Updated**: 2025-12-26 (Session 3 - ChatGPT Connection Fix)
 **Project Version**: 2.0.0 (Vercel Serverless)
 
 ---
@@ -86,9 +86,11 @@ export { handler as GET, handler as POST };
 api/
 ├── index.js       → /api (root info)
 ├── health.js      → /api/health
-├── mcp.js         → /api/mcp
+├── [transport].js → /api (MCP handler with dynamic routing)
 └── test.js        → /api/test
 ```
+
+**Note**: `[transport].js` is a **dynamic route** in Vercel/Next.js, allowing mcp-handler to handle different transport types (SSE, HTTP) at runtime. The brackets are not literal - they indicate a route parameter.
 
 **Impact**: Clear separation of concerns, easy to understand, predictable deployment.
 
@@ -138,10 +140,10 @@ async function loadCourses() {
 - Local dev still uses stdio (`index.js`) for MCP Inspector testing
 
 **Files**:
-- `api/mcp.js` - Production (SSE via mcp-handler)
-- `index.js` - Local dev (stdio transport)
+- `api/[transport].js` - Production (SSE via mcp-handler with dynamic routing)
+- `index.js` - Local dev (stdio transport for MCP Inspector)
 
-**Lesson**: Different transports for different environments is normal and correct.
+**Lesson**: Different transports for different environments is normal and correct. Dynamic routing enables flexible transport handling.
 
 ---
 
@@ -275,6 +277,79 @@ server.tool('getCourses', ..., async () => {
 ```
 
 **Lesson**: Never do expensive I/O at module level in serverless.
+
+---
+
+### Error 5: 405 Method Not Allowed (ChatGPT Connection)
+
+**Full Error**:
+```
+Error creating connector
+Client error '405 Method Not Allowed' for url 'https://learningkids-ai.vercel.app/api/mcp'
+```
+
+**Symptom**: ChatGPT couldn't connect to MCP server, always returned 405 error.
+
+**Initial Attempts**:
+1. ❌ Added OPTIONS export to handle CORS preflight
+2. ❌ Changed basePath from `/api` to `/api/mcp`
+3. ❌ Still got 405 errors
+
+**Root Cause Discovery** (via Context7):
+Consulted mcp-handler documentation and discovered the **correct routing pattern**:
+- File must be named `[transport].js` (dynamic route), not `mcp.js` (static)
+- basePath should point to the **directory** containing `[transport].js`
+- mcp-handler automatically derives SSE endpoints from this pattern
+
+**The Pattern**:
+```javascript
+// ❌ Wrong: api/mcp.js with basePath: '/api/mcp'
+// File: api/mcp.js
+const handler = createMcpHandler(..., { basePath: '/api/mcp' });
+export { handler as GET, handler as POST };
+
+// ✅ Correct: api/[transport].js with basePath: '/api'
+// File: api/[transport].js  (note the brackets!)
+const handler = createMcpHandler(..., { basePath: '/api' });
+export { handler as GET, handler as POST, handler as OPTIONS };
+```
+
+**Why [transport] Pattern**:
+- `[transport]` is Next.js/Vercel **dynamic route parameter**
+- Allows mcp-handler to handle different transport types (SSE, HTTP)
+- Handler automatically creates `/api/sse` endpoint for SSE connections
+- Handler automatically creates `/api/message` endpoint for message posting
+- basePath `/api` + dynamic `[transport]` = full routing capability
+
+**Solution Steps**:
+1. ✅ Renamed `api/mcp.js` → `api/[transport].js`
+2. ✅ Changed basePath from `/api/mcp` → `/api`
+3. ✅ Added OPTIONS export for CORS preflight
+4. ✅ Updated all documentation endpoints from `/api/mcp` → `/api`
+
+**After Fix**:
+- ChatGPT connects successfully to `https://learningkids-ai.vercel.app/api`
+- mcp-handler derives SSE endpoint: `/api/sse`
+- All HTTP methods (GET, POST, OPTIONS) handled correctly
+
+**Files Updated**:
+- `api/[transport].js` (renamed from `api/mcp.js`)
+- `docs/CHATGPT_CONFIGURATION.md` - All endpoint references
+- `docs/PROGRESS_TRACKER.md` - Production URLs
+- `mcp-server/README.md` - Deployment documentation
+- `README.md` - Project structure
+- `api/index.js` - API info endpoint
+
+**Lesson**:
+- Read framework documentation for **routing patterns**, not just API usage
+- Dynamic routes `[param]` have special meaning in Next.js/Vercel
+- basePath in mcp-handler should point to directory, not file
+- File naming conventions matter in file-based routing systems
+
+**Prevention**:
+- Always consult official examples when using framework-specific packages
+- Test with actual client (ChatGPT) early, not just curl
+- Understanding routing conventions prevents hours of debugging
 
 ---
 
@@ -537,6 +612,8 @@ Not just "We use Vercel" - explain **why**.
 6. ✅ **Delete obsolete content** - Maintenance is removal, not just addition
 7. ✅ **File-based routing** - Simple, predictable, serverless-native
 8. ✅ **Version explicitly** - All docs should state what version they describe
+9. ✅ **Dynamic routes matter** - `[transport].js` ≠ `transport.js` in Next.js/Vercel
+10. ✅ **Test with real clients** - curl tests aren't enough, use actual ChatGPT/MCP clients
 
 ---
 
@@ -555,6 +632,17 @@ Not just "We use Vercel" - explain **why**.
 - Updated remaining docs to v2.0
 - Consolidated knowledge into LEARNINGS.md
 - Pushed to GitHub
+
+### Session 3 (2025-12-26): Fixing ChatGPT Connection (405 Error)
+- Encountered 405 Method Not Allowed when connecting ChatGPT
+- Consulted mcp-handler documentation via Context7
+- Discovered correct [transport] routing pattern
+- Renamed `api/mcp.js` → `api/[transport].js`
+- Updated basePath from `/api/mcp` → `/api`
+- Added OPTIONS export for CORS
+- Updated all documentation to reflect new endpoint
+- Successfully connected ChatGPT to MCP server
+- Updated LEARNINGS.md with Error 5 and solution
 
 ---
 
