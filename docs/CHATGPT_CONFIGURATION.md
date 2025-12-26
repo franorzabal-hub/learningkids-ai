@@ -19,8 +19,8 @@ Step-by-step guide to connect ChatGPT to your deployed LearnKids AI MCP server.
 Before connecting ChatGPT to your MCP server:
 
 ✅ **Deployment Complete**
-- Server deployed to Vercel: `https://learningkids-ai.vercel.app`
-- Health check passing: `https://learningkids-ai.vercel.app/api/health`
+- Server deployed to Cloud Run: `https://learningkids-ai-470541916594.us-central1.run.app`
+- Health check passing: `https://learningkids-ai-470541916594.us-central1.run.app/health`
 
 ✅ **ChatGPT Requirements**
 - **ChatGPT Business**, **Enterprise**, or **Education** plan (MCP not available on Plus/Free)
@@ -68,12 +68,12 @@ Use `mcp-remote` to proxy HTTP into stdio for older clients.
    ```json
    {
      "name": "LearnKids AI",
-     "url": "https://learningkids-ai.vercel.app/mcp",
+     "url": "https://learningkids-ai-470541916594.us-central1.run.app/mcp",
      "description": "Interactive learning platform for kids"
    }
    ```
 
-   **Note:** ChatGPT expects the endpoint at `/mcp`. We also provide `/api` for other MCP clients like Claude Desktop.
+   **Note:** ChatGPT expects the endpoint at `/mcp`. The Cloud Run deployment supports persistent SSE connections with no timeout limits.
 
 3. **Save Configuration**
    - Click "Save" or "Add Server"
@@ -109,14 +109,14 @@ If using Claude Desktop or another MCP client that requires stdio:
          "args": [
            "-y",
            "mcp-remote",
-           "https://learningkids-ai.vercel.app/api"
+           "https://learningkids-ai-470541916594.us-central1.run.app/mcp"
          ]
        }
      }
    }
    ```
 
-   **Note:** Claude Desktop works best with `/api` endpoint. ChatGPT uses `/mcp`.
+   **Note:** Cloud Run deployment uses the `/mcp` endpoint with persistent connections (no timeout).
 
 3. **Restart Claude Desktop**
    - Close and reopen Claude Desktop
@@ -130,12 +130,12 @@ Generic configuration for MCP-compatible clients:
 
 **Connection Type:** HTTP/SSE
 **Endpoints:**
-- `https://learningkids-ai.vercel.app/mcp` (for ChatGPT Apps SDK)
-- `https://learningkids-ai.vercel.app/api` (for Claude Desktop and other MCP clients)
+- `https://learningkids-ai-470541916594.us-central1.run.app/mcp` (SSE endpoint)
+- `https://learningkids-ai-470541916594.us-central1.run.app/mcp/messages` (Message POST endpoint)
 
 **Protocol:** Server-Sent Events (SSE)
 **Authentication:** None (public endpoint)
-**Max Duration:** 60 seconds per request
+**Max Duration:** 3600 seconds (1 hour) - persistent connections supported
 
 **Available Tools:**
 ```typescript
@@ -156,15 +156,15 @@ interface Tools {
 Test the server is running:
 
 ```bash
-curl https://learningkids-ai.vercel.app/api/health
+curl https://learningkids-ai-470541916594.us-central1.run.app/health
 ```
 
 **Expected Response:**
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-12-26T15:40:39.741Z",
-  "version": "2.0.0",
+  "version": "2.1.0",
+  "server": "Cloud Run",
   "transport": "SSE",
   "mcp": "enabled"
 }
@@ -213,13 +213,12 @@ Expected: Validation result with feedback
 **Solutions:**
 1. Verify server is running:
    ```bash
-   curl https://learningkids-ai.vercel.app/api/health
+   curl https://learningkids-ai-470541916594.us-central1.run.app/health
    ```
 
 2. Check endpoint URL is correct (no trailing slash):
-   ✅ `https://learningkids-ai.vercel.app/mcp` (for ChatGPT)
-   ✅ `https://learningkids-ai.vercel.app/api` (for Claude Desktop)
-   ❌ `https://learningkids-ai.vercel.app/mcp/` (trailing slash)
+   ✅ `https://learningkids-ai-470541916594.us-central1.run.app/mcp`
+   ❌ `https://learningkids-ai-470541916594.us-central1.run.app/mcp/` (trailing slash)
 
 3. Verify ChatGPT plan supports MCP:
    - ✅ Business, Enterprise, or Education plans
@@ -227,11 +226,7 @@ Expected: Validation result with feedback
 
 4. Test with `mcp-remote`:
    ```bash
-   # For ChatGPT endpoint:
-   npx -y mcp-remote https://learningkids-ai.vercel.app/mcp
-
-   # For Claude Desktop endpoint:
-   npx -y mcp-remote https://learningkids-ai.vercel.app/api
+   npx -y mcp-remote https://learningkids-ai-470541916594.us-central1.run.app/mcp
    ```
 
 ---
@@ -242,41 +237,40 @@ Expected: Validation result with feedback
 
 **Solutions:**
 1. Reconnect to the MCP server
-2. Check server logs in Vercel dashboard
+2. Check server logs with `gcloud run logs read --tail`
 3. Verify deployment succeeded:
    ```bash
-   curl https://learningkids-ai.vercel.app/api
+   curl https://learningkids-ai-470541916594.us-central1.run.app/
    ```
 
 ---
 
 ### Timeout Errors
 
-**Problem:** "Request timed out after 60 seconds"
+**Problem:** "Request timed out"
 
-**Explanation:** Vercel serverless functions have a 60-second max duration on free tier.
+**Explanation:** Cloud Run deployment supports up to 3600 seconds (1 hour) for SSE connections.
 
 **Solutions:**
-1. This is expected for long-running operations
-2. Upgrade to Vercel Pro for 300s max duration
-3. Break long operations into smaller chunks
+1. Check Cloud Run logs: `gcloud run logs read --service learningkids-ai --tail`
+2. Verify the service is healthy: `curl https://learningkids-ai-470541916594.us-central1.run.app/health`
+3. Timeout issues should be rare with Cloud Run's persistent container architecture
 
 ---
 
 ### 405 Method Not Allowed
 
-**Problem:** Getting 405 error when accessing `/api`
+**Problem:** Getting 405 error when accessing `/mcp`
 
-**Explanation:** This is expected for simple GET requests without SSE connection.
+**Explanation:** The `/mcp` endpoint only accepts GET requests with SSE headers or POST to `/mcp/messages`.
 
 **Solution:** This is normal! MCP clients handle the SSE connection automatically. If testing manually:
 ```bash
-# This will show 405 (expected)
-curl -I https://learningkids-ai.vercel.app/api
+# Test health endpoint instead:
+curl https://learningkids-ai-470541916594.us-central1.run.app/health
 
-# MCP clients connect via the transport endpoint (e.g., /api/sse)
-# Use mcp-remote for testing:
-npx -y mcp-remote https://learningkids-ai.vercel.app/api
+# Use mcp-remote for testing the MCP endpoint:
+npx -y mcp-remote https://learningkids-ai-470541916594.us-central1.run.app/mcp
 ```
 
 ---
@@ -337,10 +331,10 @@ npx -y mcp-remote https://learningkids-ai.vercel.app/api
 ## MCP Server Information
 
 **Server Name:** learningkids-server
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Transport:** Server-Sent Events (SSE)
-**Hosting:** Vercel Serverless Functions
-**Region:** US East (iad1)
+**Hosting:** Google Cloud Run
+**Region:** us-central1 (Iowa)
 
 **Capabilities:**
 - ✅ Tools (4 total)
@@ -360,13 +354,12 @@ npx -y mcp-remote https://learningkids-ai.vercel.app/api
 
 ## Production URLs
 
-- **Production:** `https://learningkids-ai.vercel.app`
-- **Health Check:** `https://learningkids-ai.vercel.app/api/health`
-- **MCP Endpoints:**
-  - ChatGPT Apps SDK: `https://learningkids-ai.vercel.app/mcp`
-  - Claude Desktop / Other: `https://learningkids-ai.vercel.app/api`
+- **Production (Cloud Run):** `https://learningkids-ai-470541916594.us-central1.run.app`
+- **Health Check:** `https://learningkids-ai-470541916594.us-central1.run.app/health`
+- **MCP Endpoint:** `https://learningkids-ai-470541916594.us-central1.run.app/mcp`
+- **Messages Endpoint:** `https://learningkids-ai-470541916594.us-central1.run.app/mcp/messages`
 - **GitHub:** `https://github.com/franorzabal-hub/learningkids-ai`
-- **Vercel Dashboard:** `https://vercel.com/francisco-orzabals-projects/learningkids-ai`
+- **Cloud Console:** `https://console.cloud.google.com/run/detail/us-central1/learningkids-ai`
 
 ---
 
@@ -387,10 +380,11 @@ After successful connection:
 
 **Issues or Questions?**
 
-- 📖 Check [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md) for deployment details
+- 📖 Check [README.md](../README.md) for Cloud Run deployment details
 - 🏗️ Review [ARCHITECTURE.md](./ARCHITECTURE.md) for system design
 - 🐛 Report bugs: [GitHub Issues](https://github.com/franorzabal-hub/learningkids-ai/issues)
-- 📊 Monitor: [Vercel Dashboard](https://vercel.com/francisco-orzabals-projects/learningkids-ai)
+- 📊 Monitor: Cloud Run logs via `gcloud run logs read --service learningkids-ai --tail`
+- 🌐 Cloud Console: [View Service](https://console.cloud.google.com/run/detail/us-central1/learningkids-ai)
 
 ---
 

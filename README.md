@@ -108,9 +108,52 @@ learningkids-ai/
 
 ## 🚀 Quick Start
 
-### Deploy to Railway ⭐ (Recommended for ChatGPT)
+### Deploy to Google Cloud Run ⭐ (Recommended)
 
-**Why Railway?** Vercel has 60s timeout limits that cause SSE disconnections. Railway supports persistent connections required for ChatGPT Apps SDK.
+**Why Cloud Run?** Production-grade persistent container platform with:
+- ✅ No timeout limits (3600s configured) - perfect for SSE connections
+- ✅ Generous free tier (180,000 vCPU-seconds/month)
+- ✅ Auto-scaling from 0 to millions of requests
+- ✅ Full CLI control with `gcloud` for deployment and debugging
+
+**Prerequisites:**
+- Google Cloud account (free tier available)
+- `gcloud` CLI installed ([install guide](https://cloud.google.com/sdk/docs/install))
+
+**Steps:**
+```bash
+# 1. Authenticate with Google Cloud
+gcloud auth login
+
+# 2. Create a new project
+gcloud projects create learningkids-ai --name="LearnKids AI"
+
+# 3. Enable billing (required for Cloud Run free tier)
+# Visit: https://console.cloud.google.com/billing
+
+# 4. Enable required APIs
+gcloud services enable run.googleapis.com \
+  artifactregistry.googleapis.com \
+  cloudbuild.googleapis.com \
+  --project=learningkids-ai
+
+# 5. Deploy to Cloud Run
+gcloud run deploy learningkids-ai \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --project learningkids-ai
+```
+
+**Live deployment**: `https://learningkids-ai-470541916594.us-central1.run.app`
+
+**ChatGPT Configuration URL**: `https://learningkids-ai-470541916594.us-central1.run.app/mcp`
+
+---
+
+### Alternative: Deploy to Railway
+
+**Why Railway?** Simplest deployment with zero configuration.
 
 **Steps:**
 1. Go to [railway.app/new](https://railway.app/new)
@@ -118,11 +161,7 @@ learningkids-ai/
 3. Select `learningkids-ai`
 4. Click "Deploy" (Railway auto-detects Node.js)
 5. Go to Settings → Networking → "Generate Domain"
-6. Copy your URL (e.g., `https://learningkids-ai-production.up.railway.app`)
-7. Configure in ChatGPT: Settings → Connectors → Create
-8. Use URL: `https://your-railway-url.railway.app/mcp`
-
-**Done!** ✅ Railway will automatically run `npm start` which starts `server.js`
+6. Copy your URL and use `https://your-url.railway.app/mcp` for ChatGPT
 
 ---
 
@@ -206,11 +245,14 @@ See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployme
 
 **Current Phase**: ✅ Production Ready - MVP Complete
 
-**Version**: 2.1.0 (Railway Persistent Server)
+**Version**: 2.1.0 (Cloud Run Persistent Server)
+
+**Live Production URL**: https://learningkids-ai-470541916594.us-central1.run.app
 
 **Deployment Options**:
-- ⭐ **Railway** (Recommended): Persistent SSE connections for ChatGPT
-- 🔧 **Vercel**: Serverless (60s timeout limitation)
+- ⭐ **Google Cloud Run** (Production): Persistent containers, 3600s timeout, full CLI control
+- 🚂 **Railway**: Simple deployment, persistent connections
+- 🔧 **Vercel**: Serverless (60s timeout - not recommended for ChatGPT)
 
 **GitHub**: https://github.com/franorzabal-hub/learningkids-ai
 

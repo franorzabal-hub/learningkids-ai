@@ -2,8 +2,8 @@
 
 > Knowledge base capturing architectural decisions, errors solved, and lessons learned during development.
 
-**Last Updated**: 2025-12-26 (Session 3 - ChatGPT Connection + Platform Specificity)
-**Project Version**: 2.0.0 (Vercel Serverless)
+**Last Updated**: 2025-12-26 (Session 3 Extended - Cloud Run Deployment)
+**Project Version**: 2.1.0 (Cloud Run Persistent Server)
 
 ---
 
@@ -404,6 +404,127 @@ export { handler as GET, handler as POST, handler as OPTIONS };
 
 ---
 
+### Error 7: Vercel 60-Second Timeout (Connection Closed)
+
+**Symptom**: "Error creating connector Connection closed" after ChatGPT connects.
+
+**Root Cause**: Vercel serverless functions have a hard 60-second timeout limit on free tier. SSE connections require persistent connections that can last indefinitely.
+
+**Explanation**:
+- ChatGPT Apps SDK uses Server-Sent Events (SSE) for bidirectional communication
+- SSE requires keeping an HTTP connection open
+- Vercel serverless functions time out after 60 seconds
+- After timeout, connection closes, ChatGPT reports "Connection closed"
+
+**Attempted Solutions**:
+1. ❌ Increase Vercel timeout (requires Pro plan: 300s max, still not sufficient)
+2. ❌ Connection pooling (doesn't solve fundamental timeout issue)
+
+**Final Solution**: Migrate to persistent container platform
+
+**Platform Options Evaluated**:
+1. **Railway** - Simplest deployment, persistent connections
+2. **Fly.io** - Recommended by OpenAI, persistent containers
+3. **Google Cloud Run** - Enterprise-grade, generous free tier, full CLI control
+
+**Decision**: Google Cloud Run
+- ✅ 3600-second timeout (1 hour) - more than sufficient for SSE
+- ✅ Free tier: 180,000 vCPU-seconds/month
+- ✅ `gcloud` CLI provides complete control (deploy, logs, debug)
+- ✅ Auto-scaling from 0 to millions
+- ✅ Official Google documentation for MCP servers
+
+**Implementation**:
+Created production-ready persistent server:
+- `server.js` - HTTP server with SSE support (based on OpenAI's pizzaz_server_node)
+- `Dockerfile` - Optimized for Cloud Run (Node 20 slim, health checks)
+- `.dockerignore` and `.gcloudignore` - Efficient builds
+- Environment detection: `process.env.K_SERVICE` identifies Cloud Run
+
+**Lesson**:
+- Understand platform limitations BEFORE choosing deployment target
+- Serverless ≠ persistent connections (by design)
+- Different use cases require different infrastructure
+- For real-time/streaming apps: containers > serverless functions
+
+---
+
+### Error 8: Cloud Run IAM Permissions (Build Failed)
+
+**Full Error**:
+```
+ERROR: (gcloud.run.deploy) PERMISSION_DENIED: Build failed because the default
+service account is missing required IAM permissions.
+
+could not resolve source: Get "https://storage.googleapis.com/...":
+generic::permission_denied: IAM permission denied for service account
+470541916594-compute@developer.gserviceaccount.com
+```
+
+**Context**: First deployment to Cloud Run after enabling APIs.
+
+**Root Cause**: New Google Cloud projects require manual IAM permission grants for the Cloud Build default service account (`PROJECT_NUMBER-compute@developer.gserviceaccount.com`).
+
+**Why This Happens**:
+- Google Cloud follows "security-by-default" principle
+- Service accounts start with minimal permissions
+- Manual grant required to access Cloud Storage and deploy to Cloud Run
+- This prevents accidental privilege escalation
+
+**Required Permissions**:
+1. **roles/storage.admin** - Access Cloud Storage for build artifacts
+2. **roles/run.admin** - Deploy to Cloud Run services
+3. **roles/iam.serviceAccountUser** - Act as service account during deployment
+
+**Solution**:
+```bash
+# Grant Storage Admin role
+gcloud projects add-iam-policy-binding learningkids-ai \
+  --member="serviceAccount:470541916594-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+# Grant Cloud Run Admin role
+gcloud projects add-iam-policy-binding learningkids-ai \
+  --member="serviceAccount:470541916594-compute@developer.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+# Grant Service Account User role
+gcloud projects add-iam-policy-binding learningkids-ai \
+  --member="serviceAccount:470541916594-compute@developer.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+```
+
+**Verification**: After granting permissions, `gcloud run deploy` succeeded immediately.
+
+**Files Created for Cloud Run**:
+- `Dockerfile` - Multi-stage build optimized for Cloud Run
+- `.dockerignore` - Exclude node_modules, docs, tests from Docker context
+- `.gcloudignore` - Exclude unnecessary files from Cloud Build
+- Updated `server.js` - Detect Cloud Run environment via `K_SERVICE`
+
+**Deployment Result**:
+```bash
+Service [learningkids-ai] revision [learningkids-ai-00001-4fb] deployed
+Service URL: https://learningkids-ai-470541916594.us-central1.run.app
+```
+
+**Lesson**:
+- Google Cloud IAM requires explicit permission grants (security by design)
+- Error messages contain exact service account and required permissions
+- First deployment to new GCP project always requires IAM configuration
+- Use `gcloud projects add-iam-policy-binding` for permission grants
+
+**Prevention**:
+- Document IAM requirements in deployment guide
+- Create setup script with all required permissions
+- Consider using Terraform for infrastructure as code
+
+**Resources**:
+- [Cloud Build Service Account](https://cloud.google.com/build/docs/cloud-build-service-account)
+- [Cloud Run IAM Permissions](https://cloud.google.com/run/docs/reference/iam/roles)
+
+---
+
 ## Development Patterns
 
 ### Pattern 1: Using Context7 for Library Documentation
@@ -668,6 +789,9 @@ Not just "We use Vercel" - explain **why**.
 11. ✅ **Platform-specific requirements** - ChatGPT expects `/mcp`, Claude works with `/api`
 12. ✅ **Multiple endpoints okay** - Serve different platforms from same codebase
 13. ✅ **Check subscription plans** - Features like MCP may be tier-restricted
+14. ✅ **Infrastructure matters** - Serverless functions ≠ persistent connections; choose platform based on use case
+15. ✅ **IAM security-by-default** - New GCP projects require explicit permission grants (feature, not bug)
+16. ✅ **CLI control important** - Full `gcloud` access enables proper debugging and deployment control
 
 ---
 
@@ -715,6 +839,38 @@ Not just "We use Vercel" - explain **why**.
 - Consolidated essential info into README.md
 - Reduced documentation by 12% (400 lines)
 - Improved maintainability
+
+**Part 4: Migration to Google Cloud Run (Error 7 & 8)**
+- **Problem**: Vercel 60s timeout causing "Connection closed" errors
+- **Research Phase**:
+  - Evaluated Railway, Fly.io, Firebase, Google Cloud Run
+  - User requested platform with full CLI control for debugging
+  - Chose Cloud Run for enterprise-grade reliability + `gcloud` CLI
+- **Implementation**:
+  - Created `server.js` - Persistent HTTP server with SSE (based on OpenAI's pizzaz_server_node)
+  - Created `Dockerfile` - Optimized for Cloud Run (Node 20 slim, health checks)
+  - Created `.dockerignore` and `.gcloudignore` for efficient builds
+  - Configured Cloud Run with 3600s timeout (1 hour)
+- **IAM Configuration** (Error 8):
+  - Hit PERMISSION_DENIED during first deployment
+  - Granted required roles to Cloud Build service account:
+    - `roles/storage.admin` - Cloud Storage access
+    - `roles/run.admin` - Cloud Run deployment
+    - `roles/iam.serviceAccountUser` - Service account usage
+- **Deployment Success**:
+  - Service deployed: `https://learningkids-ai-470541916594.us-central1.run.app`
+  - Health check passing: `{"status":"healthy","server":"Cloud Run","version":"2.1.0"}`
+  - MCP endpoint ready: `/mcp` with 3600s timeout support
+- **Documentation Updates**:
+  - Updated README.md - Cloud Run as primary deployment option
+  - Updated CHATGPT_CONFIGURATION.md - All Cloud Run URLs
+  - Updated LEARNINGS.md - Error 7 & 8 solutions
+  - Version bump: 2.0.0 → 2.1.0 (Cloud Run Persistent Server)
+- **Key Outcomes**:
+  - ✅ Eliminated timeout constraints (Vercel 60s → Cloud Run 3600s)
+  - ✅ Full CLI control via `gcloud` (deploy, logs, debugging)
+  - ✅ Production-grade infrastructure with generous free tier
+  - ✅ ChatGPT can now establish stable SSE connections
 
 ---
 
