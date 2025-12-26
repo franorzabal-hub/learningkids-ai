@@ -178,7 +178,7 @@ function createMcpServer() {
   const server = new Server(
     {
       name: 'learningkids-server',
-      version: '2.3.0',
+      version: '2.3.1',
     },
     {
       capabilities: {
@@ -254,7 +254,12 @@ function createMcpServer() {
           inputSchema: {
             type: 'object',
             properties: {},
+            additionalProperties: false,
           },
+          annotations: {
+            readOnlyHint: true,
+          },
+          securitySchemes: [{ type: 'noauth' }],
           _meta: {
             'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
@@ -278,7 +283,12 @@ function createMcpServer() {
               },
             },
             required: ['courseId'],
+            additionalProperties: false,
           },
+          annotations: {
+            readOnlyHint: true,
+          },
+          securitySchemes: [{ type: 'noauth' }],
           _meta: {
             'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
@@ -308,7 +318,12 @@ function createMcpServer() {
               },
             },
             required: ['courseId', 'lessonNumber'],
+            additionalProperties: false,
           },
+          annotations: {
+            readOnlyHint: true,
+          },
+          securitySchemes: [{ type: 'noauth' }],
           _meta: {
             'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
@@ -321,7 +336,7 @@ function createMcpServer() {
         {
           name: 'check-student-work',
           title: 'Validate Learning Exercise',
-          description: 'Provides feedback on student code exercises. Educational tool for learning validation only.',
+          description: 'Provides feedback on student code exercises. Educational tool for learning validation only. Does not execute code.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -343,7 +358,12 @@ function createMcpServer() {
               },
             },
             required: ['courseId', 'lessonNumber', 'studentCode'],
+            additionalProperties: false,
           },
+          annotations: {
+            readOnlyHint: true, // Validates but doesn't persist or execute code
+          },
+          securitySchemes: [{ type: 'noauth' }],
           _meta: {
             'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
@@ -737,7 +757,7 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'healthy',
-      version: '2.3.0',
+      version: '2.3.1',
       server: process.env.K_SERVICE ? 'Cloud Run' : 'Local',
       transport: 'SSE',
       mcp: 'enabled',
@@ -752,7 +772,7 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       name: 'LearnKids AI',
-      version: '2.3.0',
+      version: '2.3.1',
       description: 'Interactive learning platform for kids',
       mcp: {
         endpoint: '/mcp',
