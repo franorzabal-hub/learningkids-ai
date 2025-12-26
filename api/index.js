@@ -540,11 +540,9 @@ app.get('*', (req, res) => {
 });
 
 // ============================================================================
-// INITIALIZE DATA FOR VERCEL
+// EXPORT FOR VERCEL
 // ============================================================================
 
-// Load courses data on module initialization
-await loadCourses();
-
-// Export for Vercel serverless
+// Export Express app for Vercel serverless
+// Data is loaded lazily on first request (see line 208-210)
 export default app;
