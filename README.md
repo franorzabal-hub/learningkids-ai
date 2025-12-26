@@ -108,11 +108,29 @@ learningkids-ai/
 
 ## 🚀 Quick Start
 
+### Deploy to Railway ⭐ (Recommended for ChatGPT)
+
+**Why Railway?** Vercel has 60s timeout limits that cause SSE disconnections. Railway supports persistent connections required for ChatGPT Apps SDK.
+
+**Steps:**
+1. Go to [railway.app/new](https://railway.app/new)
+2. Click "Deploy from GitHub repo"
+3. Select `learningkids-ai`
+4. Click "Deploy" (Railway auto-detects Node.js)
+5. Go to Settings → Networking → "Generate Domain"
+6. Copy your URL (e.g., `https://learningkids-ai-production.up.railway.app`)
+7. Configure in ChatGPT: Settings → Connectors → Create
+8. Use URL: `https://your-railway-url.railway.app/mcp`
+
+**Done!** ✅ Railway will automatically run `npm start` which starts `server.js`
+
+---
+
 ### Prerequisites
 - Node.js 20+ installed
-- ChatGPT Plus subscription (for Apps SDK access)
+- ChatGPT Business/Enterprise/Education plan (MCP not available on Plus)
 - GitHub account (for deployment)
-- Vercel account (free tier works)
+- Railway account (free tier: $5/month credit) OR Vercel account
 
 ### Local Development
 
@@ -188,13 +206,13 @@ See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployme
 
 **Current Phase**: ✅ Production Ready - MVP Complete
 
-**Version**: 2.0.0 (Vercel Serverless)
+**Version**: 2.1.0 (Railway Persistent Server)
 
-**Production URLs**:
-- 🌐 Application: https://learningkids-ai.vercel.app
-- 🔌 MCP Endpoint: https://learningkids-ai.vercel.app/api
-- 🏥 Health Check: https://learningkids-ai.vercel.app/api/health
-- 📦 GitHub: https://github.com/franorzabal-hub/learningkids-ai
+**Deployment Options**:
+- ⭐ **Railway** (Recommended): Persistent SSE connections for ChatGPT
+- 🔧 **Vercel**: Serverless (60s timeout limitation)
+
+**GitHub**: https://github.com/franorzabal-hub/learningkids-ai
 
 See [docs/LEARNINGS.md](docs/LEARNINGS.md) for technical decisions and troubleshooting.
 
