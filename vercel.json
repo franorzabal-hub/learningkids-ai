@@ -3,13 +3,14 @@
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/mcp-server/server.js"
+      "destination": "/api"
     }
   ],
   "functions": {
-    "mcp-server/server.js": {
+    "api/index.js": {
       "memory": 1024,
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "mcp-server/data/**"
     }
   }
 }
