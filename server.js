@@ -1,9 +1,10 @@
 /**
- * LearnKids AI - MCP Server for Railway
+ * LearnKids AI - MCP Server for Cloud Run / Railway
  *
  * Persistent HTTP server with SSE support for ChatGPT Apps SDK
  * Based on OpenAI's official pizzaz_server_node example
  *
+ * Compatible with: Cloud Run, Railway, Fly.io
  * @version 2.1.0
  */
 
@@ -460,7 +461,7 @@ const httpServer = createServer(async (req, res) => {
     res.end(JSON.stringify({
       status: 'healthy',
       version: '2.1.0',
-      server: 'Railway',
+      server: process.env.K_SERVICE ? 'Cloud Run' : 'Railway',
       transport: 'SSE',
       mcp: 'enabled',
     }));
