@@ -571,13 +571,8 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-// Start if running directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  startServer().catch((error) => {
-    console.error('[LearnKids] Unhandled error:', error);
-    process.exit(1);
-  });
-}
+// Initialize data on module load for Vercel
+await loadCourses();
 
-// Export for Vercel
+// Export for Vercel (serverless function)
 export default app;
