@@ -315,27 +315,29 @@ Tested on:
 
 ## Deployment
 
-### Static Hosting
+### Production Deployment (Vercel)
 
-This is a static HTML file - can be hosted anywhere:
+**Current deployment:** The web component is served alongside the MCP server on Vercel.
 
-1. **GitHub Pages**: Free, simple
-2. **Vercel**: Free, instant deploys
-3. **Netlify**: Free, great for static sites
-4. **Railway**: Can serve alongside MCP server
+**URL:** https://learningkids-ai.vercel.app
 
-### Simple Deploy to Vercel
+The web component is automatically served as static files by the Vercel serverless function at `/api/index.js`.
 
-```bash
-cd web-component
-vercel deploy
-```
+### How it Works
+
+1. Vercel deploys the entire project
+2. MCP server runs at `/api/mcp`
+3. Static files (web component) served from `/web-component`
+4. All automatically included via `express.static()` in the API handler
 
 ### Configure in ChatGPT
 
+See [../docs/CHATGPT_CONFIGURATION.md](../docs/CHATGPT_CONFIGURATION.md) for complete setup instructions.
+
+Quick config:
 1. Go to ChatGPT Settings > Developer Mode
-2. Add MCP Connector with your server URL
-3. In the connector config, point to your hosted `index.html`
+2. Add MCP Server URL: `https://learningkids-ai.vercel.app/api/mcp`
+3. Web component loads automatically from root URL
 
 ## Troubleshooting
 

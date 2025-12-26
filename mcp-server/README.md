@@ -2,30 +2,51 @@
 
 Model Context Protocol server that provides educational content and tools for the LearnKids AI platform.
 
+**Version:** 2.0.0 (Vercel Serverless with mcp-handler)
+
 ## Overview
 
-This MCP server exposes:
+This MCP server exposes educational tools for children through ChatGPT:
 - 📚 Course catalog (educational content for children)
 - 📝 Lesson content (explanations, examples, exercises)
 - ✅ Answer validation (check student submissions)
-- 🎯 Progress tracking capabilities
+- 🎯 Interactive learning experience
 
-## Installation
+## Architecture
+
+**New in v2.0:**
+- Uses Vercel's official `mcp-handler` package
+- Deployed as serverless function on Vercel
+- SSE (Server-Sent Events) transport
+- Lazy data loading for optimal cold starts
+
+**Files:**
+- `/api/mcp.js` - MCP server implementation (production)
+- `index.js` - Legacy stdio server (local development only)
+- `data/` - Educational content (courses and lessons)
+
+## Local Development
 
 ```bash
 cd mcp-server
 npm install
-```
 
-## Running Locally
-
-```bash
-# Development mode (auto-reload on file changes)
+# Development mode (stdio transport)
 npm run dev
 
-# Production mode
-npm start
+# Or start with Node directly
+node index.js
 ```
+
+## Production Deployment
+
+The MCP server is deployed to Vercel as `/api/mcp`:
+
+```
+https://learningkids-ai.vercel.app/api/mcp
+```
+
+See [../docs/DEPLOYMENT_VERCEL.md](../docs/DEPLOYMENT_VERCEL.md) for deployment details.
 
 ## Tools Provided
 
@@ -148,13 +169,13 @@ Validates a student's code submission.
 
 ### Courses
 
-Location: `data/courses.json`
+**Location:** `data/courses.json`
 
 Contains the course catalog with metadata for each course.
 
 ### Lessons
 
-Location: `data/lessons/{courseId}.json`
+**Location:** `data/lessons/{courseId}.json`
 
 Contains all lessons for a specific course, including:
 - Content (explanations, examples, fun facts)
@@ -164,7 +185,9 @@ Contains all lessons for a specific course, including:
 
 ## Validation
 
-The server uses regex pattern matching to validate student code submissions. **Important**: We never execute user code for security reasons.
+The server uses regex pattern matching to validate student code submissions.
+
+**Security:** We never execute user code. Only pattern matching for safety.
 
 Example validation:
 ```javascript
@@ -185,6 +208,7 @@ This checks if the student created a variable called `my_name` with a string val
 - ✅ Never executes user code
 - ✅ Pattern matching only for validation
 - ✅ Graceful error handling
+- ✅ Lazy data loading (serverless-friendly)
 
 ## Error Handling
 
@@ -206,29 +230,35 @@ Error codes:
 
 ## Logging
 
-The server logs to stderr (visible in development):
+The server logs important events:
 
 ```
-[LearnKids] Starting MCP server...
+[LearnKids] Setting up MCP tools...
 [LearnKids] Loaded 1 courses
-[LearnKids] MCP server running successfully! 🚀
 [LearnKids] Tool called: getCourses
 [LearnKids] Tool called: getLesson { courseId: 'python-kids', lessonId: 'lesson-1' }
 ```
 
+View logs in Vercel Dashboard: https://vercel.com/francisco-orzabals-projects/learningkids-ai
+
 ## Testing
 
-```bash
-# Manual testing with MCP inspector
-npx @modelcontextprotocol/inspector node index.js
+### Local Testing
 
-# Or use automated tests (TODO)
-npm test
+```bash
+# Use MCP inspector (stdio mode)
+npx @modelcontextprotocol/inspector node index.js
 ```
 
-## Deployment
+### Production Testing
 
-See [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for deployment instructions to Railway, Render, or other platforms.
+```bash
+# Health check
+curl https://learningkids-ai.vercel.app/api/health
+
+# Test in ChatGPT
+# See docs/CHATGPT_CONFIGURATION.md
+```
 
 ## Adding New Content
 
@@ -242,7 +272,11 @@ See [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for deployment instructions t
       "id": "new-course",
       "title": "New Course Title",
       "emoji": "🎨",
-      ...
+      "description": "Course description",
+      "ageRange": "7-12 years",
+      "difficulty": "Beginner",
+      "totalLessons": 5,
+      "estimatedDuration": "30 minutes"
     }
   ]
 }
@@ -250,7 +284,7 @@ See [../docs/DEPLOYMENT.md](../docs/DEPLOYMENT.md) for deployment instructions t
 
 2. Create `data/lessons/new-course.json` with lesson content
 
-3. Server will automatically load it on next start
+3. Deploy to Vercel (changes auto-deployed on git push)
 
 ### Add a New Lesson
 
@@ -273,29 +307,58 @@ Edit the course's lesson file (`data/lessons/{courseId}.json`):
 
 ## Troubleshooting
 
-**Server won't start**
+**Local server won't start**
 - Check Node.js version: `node --version` (needs 20+)
 - Install dependencies: `npm install`
 - Check for syntax errors in JSON files
 
+**Vercel deployment fails**
+- Check Vercel logs: `vercel logs`
+- Verify data files are included in deployment
+- Check `vercel.json` configuration
+
 **Tool not responding**
-- Check stderr logs for errors
-- Verify JSON structure in data files
-- Use MCP inspector for debugging
+- Check Vercel function logs
+- Verify data files exist and are valid JSON
+- Test locally with MCP inspector first
 
 **Validation always fails**
 - Test regex pattern separately
 - Check for typos in pattern
 - Remember: patterns are case-insensitive by default
 
+## Migration from v1.0
+
+**Changes in v2.0:**
+- ❌ Removed: Railway/Render deployment
+- ✅ Added: Vercel serverless deployment
+- ✅ Added: `mcp-handler` package
+- ✅ Added: SSE transport
+- ✅ Changed: Entry point is `/api/mcp.js` (production)
+- ✅ Kept: `index.js` for local development
+
+**Migration steps:**
+1. Install new dependency: `npm install mcp-handler`
+2. Deploy to Vercel (see docs/DEPLOYMENT_VERCEL.md)
+3. Update ChatGPT configuration with new URL
+
 ## Contributing
 
 When adding new content:
 1. Follow the existing JSON structure
 2. Test regex patterns thoroughly
-3. Keep language age-appropriate (8-12 years)
+3. Keep language age-appropriate (7-12 years)
 4. Add fun facts to keep engagement high
 5. Use emojis for visual appeal
+6. Test locally before deploying
+
+## Resources
+
+- **Production URL**: https://learningkids-ai.vercel.app
+- **MCP Endpoint**: https://learningkids-ai.vercel.app/api/mcp
+- **Vercel Dashboard**: https://vercel.com/francisco-orzabals-projects/learningkids-ai
+- **Documentation**: See `/docs` folder
+- **ChatGPT Config**: See `docs/CHATGPT_CONFIGURATION.md`
 
 ---
 
