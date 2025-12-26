@@ -342,11 +342,11 @@ const handler = createMcpHandler(
     },
   },
   {
-    basePath: '/api',
+    basePath: '/api/mcp',
     maxDuration: 60,
-    verboseLogs: process.env.NODE_ENV === 'development',
+    verboseLogs: true,
   }
 );
 
-// Export for Vercel serverless
-export { handler as GET, handler as POST };
+// Export for Vercel serverless (all HTTP methods for CORS and SSE)
+export { handler as GET, handler as POST, handler as OPTIONS };
