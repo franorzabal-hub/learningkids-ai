@@ -1,0 +1,29 @@
+{
+  "name": "learningkids-ai",
+  "version": "2.0.0",
+  "description": "LearnKids AI - Educational platform for children (Vercel deployment)",
+  "type": "module",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node --watch api/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "education",
+    "chatgpt",
+    "apps-sdk",
+    "learning",
+    "vercel"
+  ],
+  "author": "LearnKids Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "zod": "^3.22.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
