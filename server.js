@@ -27,6 +27,9 @@ const PORT = process.env.PORT || 8000;
 const SSE_PATH = '/mcp';
 const POST_PATH = '/mcp/messages';
 
+// Session management for SSE connections
+const sessions = new Map();
+
 // ============================================================================
 // DATA LOADING
 // ============================================================================
@@ -383,15 +386,40 @@ function createMcpServer() {
 // HTTP SERVER
 // ============================================================================
 
-async function handleSseRequest(res) {
-  console.log('[LearnKids] New SSE connection');
+async function handleSseRequest(req, res, url) {
+  // Extract sessionId from query params if provided by client
+  let sessionId = url.searchParams.get('sessionId');
+
+  if (!sessionId) {
+    // Generate a session ID if client didn't provide one
+    sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  console.log(`[LearnKids] New SSE connection - sessionId: ${sessionId}`);
 
   const server = createMcpServer();
   const transport = new SSEServerTransport(POST_PATH, res);
 
   try {
     await server.connect(transport);
-    console.log('[LearnKids] SSE connection established');
+    console.log(`[LearnKids] SSE connection established for session: ${sessionId}`);
+
+    // Store the server instance (not transport) for this session
+    sessions.set(sessionId, { server, transport, createdAt: Date.now() });
+
+    // Clean up session when connection closes
+    req.on('close', () => {
+      console.log(`[LearnKids] SSE connection closed for ${sessionId}`);
+      sessions.delete(sessionId);
+    });
+
+    // Also clean up after 1 hour of inactivity
+    setTimeout(() => {
+      if (sessions.has(sessionId)) {
+        console.log(`[LearnKids] Cleaning up inactive session: ${sessionId}`);
+        sessions.delete(sessionId);
+      }
+    }, 3600000); // 1 hour
   } catch (error) {
     console.error('[LearnKids] SSE connection error:', error);
     if (!res.headersSent) {
@@ -401,10 +429,8 @@ async function handleSseRequest(res) {
 }
 
 async function handlePostMessage(req, res, url) {
-  console.log('[LearnKids] Message received:', {
-    sessionId: url.searchParams.get('sessionId'),
-    path: url.pathname,
-  });
+  const sessionId = url.searchParams.get('sessionId');
+  console.log(`[LearnKids] POST message - sessionId: ${sessionId}`);
 
   // Read request body
   const chunks = [];
@@ -415,13 +441,57 @@ async function handlePostMessage(req, res, url) {
 
   console.log('[LearnKids] Message body:', body);
 
-  // For now, acknowledge receipt
-  // In a full implementation, this would route to the correct SSE session
-  res.writeHead(200, {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  });
-  res.end(JSON.stringify({ received: true }));
+  try {
+    // Parse the JSON-RPC message
+    const message = JSON.parse(body);
+
+    // Find the session
+    const session = sessions.get(sessionId);
+
+    if (!session) {
+      console.error(`[LearnKids] Session not found: ${sessionId}`);
+      console.log('[LearnKids] Active sessions:', Array.from(sessions.keys()));
+
+      // If no session found, try to match with any session (fallback for testing)
+      if (sessions.size > 0) {
+        const fallbackSessionId = Array.from(sessions.keys())[0];
+        console.log(`[LearnKids] Using fallback session: ${fallbackSessionId}`);
+        const fallbackSession = sessions.get(fallbackSessionId);
+
+        // Call handleMessage on the transport
+        await fallbackSession.transport.handleMessage(message);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ received: true }));
+        return;
+      }
+
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32001, message: 'Session not found' },
+        id: message.id
+      }));
+      return;
+    }
+
+    // Handle the message through the transport
+    await session.transport.handleMessage(message);
+
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
+    });
+    res.end(JSON.stringify({ received: true }));
+  } catch (error) {
+    console.error('[LearnKids] Error handling message:', error);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      jsonrpc: '2.0',
+      error: { code: -32603, message: 'Internal error: ' + error.message },
+      id: null
+    }));
+  }
 }
 
 const httpServer = createServer(async (req, res) => {
@@ -445,7 +515,7 @@ const httpServer = createServer(async (req, res) => {
 
   // Handle SSE connection
   if (req.method === 'GET' && url.pathname === SSE_PATH) {
-    await handleSseRequest(res);
+    await handleSseRequest(req, res, url);
     return;
   }
 
