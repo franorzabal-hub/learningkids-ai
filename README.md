@@ -69,7 +69,6 @@ learningkids-ai/
 │   ├── CONTENT_GUIDE.md         # Guidelines for creating educational content
 │   ├── DEPLOYMENT_VERCEL.md     # Vercel deployment instructions
 │   ├── LEARNINGS.md             # Knowledge base and lessons learned
-│   ├── PROGRESS_TRACKER.md      # Project progress and milestones
 │   └── TESTING.md               # Testing strategy and checklist
 ├── mcp-server/
 │   ├── index.js                 # MCP server implementation
@@ -156,7 +155,7 @@ See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployme
 | [CHATGPT_CONFIGURATION.md](docs/CHATGPT_CONFIGURATION.md) | **⭐ How to connect ChatGPT to your deployed MCP server** |
 | [CONTENT_GUIDE.md](docs/CONTENT_GUIDE.md) | How to create age-appropriate educational content |
 | [DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) | Vercel deployment guide (v2.0 with SSE transport) |
-| [PROGRESS_TRACKER.md](docs/PROGRESS_TRACKER.md) | Development milestones and status |
+| [LEARNINGS.md](docs/LEARNINGS.md) | **🧠 Knowledge base: errors solved, decisions made, lessons learned** |
 | [TESTING.md](docs/TESTING.md) | Testing strategy and QA checklist |
 
 ## 🎨 Design Principles
@@ -187,9 +186,17 @@ See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for detailed deployme
 
 ## 📊 Project Status
 
-Current Phase: **MVP Development**
+**Current Phase**: ✅ Production Ready - MVP Complete
 
-See [docs/PROGRESS_TRACKER.md](docs/PROGRESS_TRACKER.md) for detailed progress.
+**Version**: 2.0.0 (Vercel Serverless)
+
+**Production URLs**:
+- 🌐 Application: https://learningkids-ai.vercel.app
+- 🔌 MCP Endpoint: https://learningkids-ai.vercel.app/api
+- 🏥 Health Check: https://learningkids-ai.vercel.app/api/health
+- 📦 GitHub: https://github.com/franorzabal-hub/learningkids-ai
+
+See [docs/LEARNINGS.md](docs/LEARNINGS.md) for technical decisions and troubleshooting.
 
 ## 🤝 Contributing
 
