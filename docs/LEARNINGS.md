@@ -2,7 +2,7 @@
 
 > Knowledge base capturing architectural decisions, errors solved, and lessons learned during development.
 
-**Last Updated**: 2025-12-26 (Session 3 - ChatGPT Connection Fix)
+**Last Updated**: 2025-12-26 (Session 3 - ChatGPT Connection + Platform Specificity)
 **Project Version**: 2.0.0 (Vercel Serverless)
 
 ---
@@ -353,6 +353,57 @@ export { handler as GET, handler as POST, handler as OPTIONS };
 
 ---
 
+### Error 6: ChatGPT Expects `/mcp` Endpoint (Platform Specificity)
+
+**Context**: After fixing Error 5 (405), connection still failed for some users.
+
+**Discovery via Research**:
+- ChatGPT Apps SDK expects MCP servers at `/mcp` endpoint **by convention**
+- OpenAI documentation specifies this URL pattern
+- While `/api` works for generic MCP clients, ChatGPT specifically looks for `/mcp`
+
+**Additional Constraints Discovered**:
+1. **Plan Restrictions**: MCP only available on:
+   - ✅ ChatGPT Business
+   - ✅ ChatGPT Enterprise
+   - ✅ ChatGPT Education
+   - ❌ ChatGPT Plus (NO MCP support)
+   - ❌ ChatGPT Free (NO MCP support)
+
+2. **Settings Requirements**:
+   - Developer Mode must be enabled
+   - Accessed via Settings → Connectors (not in chat interface)
+
+**Solution**: Provide both endpoints
+```javascript
+// File: api/[transport].js (generic MCP clients)
+const handler = createMcpHandler(..., { basePath: '/api' });
+export { handler as GET, handler as POST, handler as OPTIONS };
+
+// File: api/mcp/[transport].js (ChatGPT specific)
+const handler = createMcpHandler(..., { basePath: '/api/mcp' });
+export { handler as GET, handler as POST, handler as OPTIONS };
+```
+
+**Endpoints Available**:
+- `https://learningkids-ai.vercel.app/api/mcp` → For ChatGPT Apps SDK
+- `https://learningkids-ai.vercel.app/api` → For Claude Desktop, other MCP clients
+
+**Files Created/Updated**:
+- ✅ Created `api/mcp/[transport].js` (ChatGPT-specific endpoint)
+- ✅ Updated `docs/CHATGPT_CONFIGURATION.md` (both endpoints documented)
+- ✅ Updated troubleshooting to check ChatGPT plan compatibility
+
+**Lesson**:
+- **Platform specificity matters** - each AI platform may have URL conventions
+- **Plan limitations** - not all subscription tiers support all features
+- **Multiple endpoints are okay** - serving different clients from same codebase is normal
+- **Read platform docs** - ChatGPT has specific requirements beyond MCP spec
+
+**Impact**: Broadens compatibility - now works with both ChatGPT and Claude Desktop/other MCP clients.
+
+---
+
 ## Development Patterns
 
 ### Pattern 1: Using Context7 for Library Documentation
@@ -614,6 +665,9 @@ Not just "We use Vercel" - explain **why**.
 8. ✅ **Version explicitly** - All docs should state what version they describe
 9. ✅ **Dynamic routes matter** - `[transport].js` ≠ `transport.js` in Next.js/Vercel
 10. ✅ **Test with real clients** - curl tests aren't enough, use actual ChatGPT/MCP clients
+11. ✅ **Platform-specific requirements** - ChatGPT expects `/mcp`, Claude works with `/api`
+12. ✅ **Multiple endpoints okay** - Serve different platforms from same codebase
+13. ✅ **Check subscription plans** - Features like MCP may be tier-restricted
 
 ---
 
@@ -633,7 +687,8 @@ Not just "We use Vercel" - explain **why**.
 - Consolidated knowledge into LEARNINGS.md
 - Pushed to GitHub
 
-### Session 3 (2025-12-26): Fixing ChatGPT Connection (405 Error)
+### Session 3 (2025-12-26): Fixing ChatGPT Connection (405 Error + Platform Specificity)
+**Part 1: Dynamic Routing Fix (Error 5)**
 - Encountered 405 Method Not Allowed when connecting ChatGPT
 - Consulted mcp-handler documentation via Context7
 - Discovered correct [transport] routing pattern
@@ -641,8 +696,25 @@ Not just "We use Vercel" - explain **why**.
 - Updated basePath from `/api/mcp` → `/api`
 - Added OPTIONS export for CORS
 - Updated all documentation to reflect new endpoint
-- Successfully connected ChatGPT to MCP server
-- Updated LEARNINGS.md with Error 5 and solution
+
+**Part 2: ChatGPT-Specific Endpoint (Error 6)**
+- User reported connection still failing despite 405 fix
+- Researched ChatGPT Apps SDK documentation
+- Discovered ChatGPT expects `/mcp` endpoint specifically
+- Discovered MCP not available on Plus/Free plans (only Business/Enterprise/Education)
+- Created dual endpoint strategy:
+  - `api/mcp/[transport].js` → For ChatGPT Apps SDK
+  - `api/[transport].js` → For Claude Desktop and generic clients
+- Updated CHATGPT_CONFIGURATION.md with plan requirements
+- Updated troubleshooting section with plan verification
+- Documented Error 6 in LEARNINGS.md
+
+**Part 3: Documentation Consolidation**
+- Reviewed all 8 documentation files for redundancy
+- Eliminated PROGRESS_TRACKER.md (MVP complete, redundant with git history)
+- Consolidated essential info into README.md
+- Reduced documentation by 12% (400 lines)
+- Improved maintainability
 
 ---
 
