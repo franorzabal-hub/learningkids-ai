@@ -1,0 +1,220 @@
+{
+  "courseId": "python-kids",
+  "lessons": [
+    {
+      "id": "lesson-1",
+      "order": 1,
+      "title": "Magic Variables 🪄",
+      "duration": "5 minutes",
+      "content": {
+        "character": "🧙‍♂️",
+        "characterName": "Wizard Pythonio",
+        "greeting": "Hello, young programmer! I'm Wizard Pythonio, and I'll teach you magic spells... I mean, Python code!",
+        "explanation": "A **variable** is like a magical box where you can store things. You give the box a name, and put something inside!\n\nImagine you have a box labeled 'favorite_color'. Inside, you put the word 'blue'. Now whenever you say 'favorite_color', Python knows you mean 'blue'!\n\nIn Python, we create variables like this:\n```\nname = \"Luna\"\nage = 10\n```\n\nThe `=` sign means \"put this value in this variable.\"",
+        "image": null,
+        "examples": [
+          {
+            "code": "my_name = \"Alex\"",
+            "explanation": "This creates a variable called 'my_name' and stores the text 'Alex' in it."
+          },
+          {
+            "code": "my_age = 9",
+            "explanation": "This creates a variable called 'my_age' and stores the number 9 in it."
+          },
+          {
+            "code": "print(my_name)",
+            "explanation": "This shows what's inside the 'my_name' variable. It will display: Alex"
+          }
+        ],
+        "funFact": "Did you know? The name 'Python' comes from a comedy show called Monty Python's Flying Circus! The creator loved the show."
+      },
+      "exercise": {
+        "instruction": "Create a variable called `favorite_animal` and put your favorite animal inside (remember to use quotes for text!). Then use `print()` to show it.",
+        "template": "favorite_animal = \"____\"\nprint(favorite_animal)",
+        "hint": "Remember: text (like animal names) goes inside quotes! For example: \"dog\" or \"cat\" or \"dragon\"",
+        "solution": "favorite_animal = \"cat\"\nprint(favorite_animal)",
+        "validation": {
+          "type": "regex",
+          "pattern": "favorite_animal\\s*=\\s*[\"'][^\"']+[\"']",
+          "errorMessage": "Make sure to create a variable called 'favorite_animal' and put text inside quotes!"
+        }
+      },
+      "reward": {
+        "stars": 1,
+        "badge": "First Variable",
+        "message": "🎉 Amazing! You just created your first variable! You're officially a programmer now!"
+      },
+      "nextLesson": "lesson-2"
+    },
+    {
+      "id": "lesson-2",
+      "order": 2,
+      "title": "Number Magic 🔢",
+      "duration": "5 minutes",
+      "content": {
+        "character": "🤖",
+        "characterName": "Calculator Bot",
+        "greeting": "Beep boop! I'm Calculator Bot. Let me show you how to do math with Python!",
+        "explanation": "Python is like a super-fast calculator! You can add, subtract, multiply, and divide.\n\nHere are the magic symbols:\n- `+` means add (5 + 3 = 8)\n- `-` means subtract (10 - 4 = 6)\n- `*` means multiply (3 * 4 = 12)\n- `/` means divide (20 / 4 = 5)\n\nYou can save the answer in a variable!",
+        "image": null,
+        "examples": [
+          {
+            "code": "apples = 5\noranges = 3\ntotal_fruit = apples + oranges\nprint(total_fruit)",
+            "explanation": "This adds 5 + 3 and stores 8 in 'total_fruit'. Then it shows: 8"
+          },
+          {
+            "code": "age_now = 10\nage_next_year = age_now + 1\nprint(age_next_year)",
+            "explanation": "This calculates your age next year. If you're 10 now, it will show: 11"
+          }
+        ],
+        "funFact": "Computers are SO fast, they can do billions of calculations per second! That's faster than you can blink!"
+      },
+      "exercise": {
+        "instruction": "You have 7 candies. Your friend gives you 5 more. Create variables for both numbers, add them together, and print the total!",
+        "template": "my_candies = ____\nfriend_candies = ____\ntotal_candies = ____ + ____\nprint(total_candies)",
+        "hint": "Fill in the blanks with numbers (no quotes needed for numbers!). Remember: 7 candies + 5 candies = ?",
+        "solution": "my_candies = 7\nfriend_candies = 5\ntotal_candies = my_candies + friend_candies\nprint(total_candies)",
+        "validation": {
+          "type": "regex",
+          "pattern": "(my_candies|candies1)\\s*=\\s*\\d+.*\\n.*(friend_candies|candies2)\\s*=\\s*\\d+.*\\n.*total.*=.*(\\+|my_candies.*friend_candies)",
+          "errorMessage": "Create two variables with numbers, add them together, and save in 'total_candies'!"
+        }
+      },
+      "reward": {
+        "stars": 1,
+        "badge": "Math Wizard",
+        "message": "🌟 Fantastic! You're a math wizard now! Python makes calculations super easy!"
+      },
+      "nextLesson": "lesson-3"
+    },
+    {
+      "id": "lesson-3",
+      "order": 3,
+      "title": "Text Adventures 📝",
+      "duration": "5 minutes",
+      "content": {
+        "character": "📖",
+        "characterName": "Story Book",
+        "greeting": "Hi there! I love stories and words. Let me teach you about text in Python!",
+        "explanation": "In Python, we call text a **string** (like a string of letters!). You can join strings together to make sentences.\n\nTo join strings, we use the `+` sign:\n```\nfirst_name = \"Luna\"\nlast_name = \"Star\"\nfull_name = first_name + \" \" + last_name\n```\n\nThis creates: \"Luna Star\"\n\nNotice the space `\" \"` in the middle? That's so the words don't stick together!",
+        "image": null,
+        "examples": [
+          {
+            "code": "greeting = \"Hello\"\nname = \"Alex\"\nmessage = greeting + \", \" + name + \"!\"\nprint(message)",
+            "explanation": "This joins the pieces to create: Hello, Alex!"
+          },
+          {
+            "code": "favorite_color = \"blue\"\nsentence = \"My favorite color is \" + favorite_color\nprint(sentence)",
+            "explanation": "This creates: My favorite color is blue"
+          }
+        ],
+        "funFact": "The longest word in Python's dictionary has 45 letters! Can you imagine typing that?"
+      },
+      "exercise": {
+        "instruction": "Create a variable with your name, then make a welcoming message like 'Welcome, [YourName]!' and print it!",
+        "template": "my_name = \"____\"\nwelcome_message = \"Welcome, \" + ____ + \"!\"\nprint(welcome_message)",
+        "hint": "Put your name in quotes, then add the pieces together. Don't forget to include 'my_name' when building the message!",
+        "solution": "my_name = \"Luna\"\nwelcome_message = \"Welcome, \" + my_name + \"!\"\nprint(welcome_message)",
+        "validation": {
+          "type": "regex",
+          "pattern": "my_name\\s*=\\s*[\"'][^\"']+[\"'].*welcome.*=.*\\+.*my_name",
+          "errorMessage": "Create 'my_name' with text in quotes, then build 'welcome_message' by adding strings together!"
+        }
+      },
+      "reward": {
+        "stars": 1,
+        "badge": "String Master",
+        "message": "💬 Awesome! You can now create any message you want! Words are powerful!"
+      },
+      "nextLesson": "lesson-4"
+    },
+    {
+      "id": "lesson-4",
+      "order": 4,
+      "title": "Super Lists 📋",
+      "duration": "5 minutes",
+      "content": {
+        "character": "🎒",
+        "characterName": "Backpack Buddy",
+        "greeting": "Hey! I'm Backpack Buddy. I carry lots of things - just like a Python list!",
+        "explanation": "A **list** is like a backpack that can hold many items. You create a list using square brackets `[]`.\n\n```python\nfavorite_foods = [\"pizza\", \"ice cream\", \"tacos\"]\n```\n\nYou can:\n- Add items: `favorite_foods.append(\"cookies\")`\n- See how many items: `len(favorite_foods)`\n- Get the first item: `favorite_foods[0]` (counting starts at 0!)\n\nLists are super useful when you need to remember more than one thing!",
+        "image": null,
+        "examples": [
+          {
+            "code": "my_toys = [\"ball\", \"doll\", \"blocks\"]\nprint(my_toys)",
+            "explanation": "This creates a list of toys. It will show: ['ball', 'doll', 'blocks']"
+          },
+          {
+            "code": "fruits = [\"apple\", \"banana\"]\nfruits.append(\"orange\")\nprint(fruits)",
+            "explanation": "This adds 'orange' to the list. Now it has 3 fruits!"
+          },
+          {
+            "code": "animals = [\"dog\", \"cat\", \"bird\"]\nfirst_animal = animals[0]\nprint(first_animal)",
+            "explanation": "This gets the first item (index 0). It will show: dog"
+          }
+        ],
+        "funFact": "Lists in Python can hold different types of things at once - numbers AND text AND even other lists!"
+      },
+      "exercise": {
+        "instruction": "Create a list called `my_hobbies` with at least 3 things you like to do (like \"reading\", \"soccer\", \"drawing\"). Then print your list!",
+        "template": "my_hobbies = [____, ____, ____]\nprint(my_hobbies)",
+        "hint": "Remember: put each hobby in quotes and separate them with commas. Like: [\"hobby1\", \"hobby2\", \"hobby3\"]",
+        "solution": "my_hobbies = [\"reading\", \"soccer\", \"drawing\"]\nprint(my_hobbies)",
+        "validation": {
+          "type": "regex",
+          "pattern": "my_hobbies\\s*=\\s*\\[[\"'][^\"']+[\"']\\s*,.*,.*\\]",
+          "errorMessage": "Create a list called 'my_hobbies' with at least 3 items in quotes, separated by commas!"
+        }
+      },
+      "reward": {
+        "stars": 1,
+        "badge": "List Hero",
+        "message": "🎊 Brilliant! You can now organize all your favorite things in lists! Super helpful!"
+      },
+      "nextLesson": "lesson-5"
+    },
+    {
+      "id": "lesson-5",
+      "order": 5,
+      "title": "Function Power 🚀",
+      "duration": "5 minutes",
+      "content": {
+        "character": "🎭",
+        "characterName": "Magic Box",
+        "greeting": "Greetings! I'm the Magic Box. I can do the same trick over and over. That's what functions do!",
+        "explanation": "A **function** is like a magic spell you can use again and again. Instead of writing the same code many times, you write it once in a function!\n\nTo create a function:\n```python\ndef say_hello():\n    print(\"Hello, friend!\")\n```\n\nTo use it:\n```python\nsay_hello()  # This runs the function!\n```\n\nFunctions can also take inputs (called parameters):\n```python\ndef greet(name):\n    print(\"Hello, \" + name + \"!\")\n\ngreet(\"Luna\")  # Shows: Hello, Luna!\n```",
+        "image": null,
+        "examples": [
+          {
+            "code": "def make_excited(word):\n    return word + \"!!!\"\n\nresult = make_excited(\"Yay\")\nprint(result)",
+            "explanation": "This function adds !!! to any word. It will show: Yay!!!"
+          },
+          {
+            "code": "def add_numbers(a, b):\n    return a + b\n\nanswer = add_numbers(5, 3)\nprint(answer)",
+            "explanation": "This function adds two numbers. It will show: 8"
+          }
+        ],
+        "funFact": "Functions are like recipes! Once you write a recipe (function), you can cook that dish (run the function) whenever you want!"
+      },
+      "exercise": {
+        "instruction": "Create a function called `make_introduction` that takes a name and returns \"Hi, I'm [name]!\". Then call it with your name!",
+        "template": "def make_introduction(name):\n    return \"Hi, I'm \" + ____ + \"!\"\n\nmy_intro = make_introduction(\"____\")\nprint(my_intro)",
+        "hint": "In the return line, use the 'name' parameter. When calling the function, put your actual name in quotes!",
+        "solution": "def make_introduction(name):\n    return \"Hi, I'm \" + name + \"!\"\n\nmy_intro = make_introduction(\"Alex\")\nprint(my_intro)",
+        "validation": {
+          "type": "regex",
+          "pattern": "def\\s+make_introduction\\s*\\(\\s*name\\s*\\).*return.*name",
+          "errorMessage": "Define a function called 'make_introduction' that takes 'name' as a parameter and returns a greeting!"
+        }
+      },
+      "reward": {
+        "stars": 1,
+        "badge": "Function Creator",
+        "message": "🏆 AMAZING! You completed the Python for Kids course! You're officially a Python programmer! Keep coding and creating awesome things!"
+      },
+      "nextLesson": null,
+      "isFinalLesson": true,
+      "completionMessage": "Congratulations! 🎓 You've learned:\n✅ Variables\n✅ Math operations\n✅ Strings (text)\n✅ Lists\n✅ Functions\n\nYou're ready to build your own Python programs! Keep practicing and never stop learning!"
+    }
+  ]
+}

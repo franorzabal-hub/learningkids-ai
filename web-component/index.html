@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LearnKids AI</title>
+
+  <!-- Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval';
+                 style-src 'self' 'unsafe-inline';">
+
+  <!-- React 18 via CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Root element for React app -->
+  <div id="root"></div>
+
+  <!-- React Application -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // ========================================================================
+    // UTILITY FUNCTIONS
+    // ========================================================================
+
+    /**
+     * Call MCP tool safely with error handling
+     */
+    async function callTool(name, parameters = {}) {
+      try {
+        console.log('[LearnKids UI] Calling tool:', name, parameters);
+
+        if (!window.openai || !window.openai.callTool) {
+          throw new Error('OpenAI API not available');
+        }
+
+        const response = await window.openai.callTool({
+          name,
+          parameters
+        });
+
+        console.log('[LearnKids UI] Tool response:', response);
+
+        const data = JSON.parse(response.content[0].text);
+
+        if (!data.success) {
+          throw new Error(data.error || 'Tool call failed');
+        }
+
+        return data.data;
+      } catch (error) {
+        console.error(`[LearnKids UI] Tool ${name} failed:`, error);
+        throw error;
+      }
+    }
+
+    /**
+     * Save state to ChatGPT widget state
+     */
+    function saveWidgetState(state) {
+      try {
+        if (window.openai && window.openai.setWidgetState) {
+          window.openai.setWidgetState(state);
+          console.log('[LearnKids UI] State saved:', state);
+        }
+      } catch (error) {
+        console.error('[LearnKids UI] Failed to save state:', error);
+      }
+    }
+
+    /**
+     * Load state from ChatGPT widget state
+     */
+    function loadWidgetState() {
+      try {
+        if (window.openai && window.openai.widgetState) {
+          console.log('[LearnKids UI] State loaded:', window.openai.widgetState);
+          return window.openai.widgetState;
+        }
+      } catch (error) {
+        console.error('[LearnKids UI] Failed to load state:', error);
+      }
+      return null;
+    }
+
+    /**
+     * Format text with line breaks
+     */
+    function formatText(text) {
+      if (!text) return [];
+      return text.split('\n').map((line, idx) => (
+        <React.Fragment key={idx}>
+          {line}
+          {idx < text.split('\n').length - 1 && <br />}
+        </React.Fragment>
+      ));
+    }
+
+    // ========================================================================
+    // COMPONENTS
+    // ========================================================================
+
+    /**
+     * Loading spinner component
+     */
+    function LoadingSpinner() {
+      return (
+        <div className="loading-container">
+          <div className="spinner">🌟</div>
+          <p>Loading your awesome courses...</p>
+        </div>
+      );
+    }
+
+    /**
+     * Error display component
+     */
+    function ErrorMessage({ message, onRetry }) {
+      return (
+        <div className="error-container">
+          <div className="error-emoji">😅</div>
+          <h2>Oops! Something went wrong</h2>
+          <p>{message || "Let's try that again!"}</p>
+          <button className="button button-primary" onClick={onRetry}>
+            🔄 Try Again
+          </button>
+        </div>
+      );
+    }
+
+    /**
+     * Course Card component
+     */
+    function CourseCard({ course, onSelect }) {
+      return (
+        <div
+          className="course-card"
+          style={{ borderLeft: `6px solid ${course.color}` }}
+        >
+          <div className="course-emoji">{course.emoji}</div>
+          <h3 className="course-title">{course.title}</h3>
+          <p className="course-description">{course.description}</p>
+
+          <div className="course-meta">
+            <span className="meta-item">
+              <span className="meta-icon">👦</span>
+              {course.ageRange}
+            </span>
+            <span className="meta-item">
+              <span className="meta-icon">📚</span>
+              {course.totalLessons} lessons
+            </span>
+            <span className="meta-item">
+              <span className="meta-icon">⏱️</span>
+              {course.estimatedDuration}
+            </span>
+          </div>
+
+          <button
+            className="button button-primary"
+            onClick={() => onSelect(course.id)}
+          >
+            Start Learning! 🚀
+          </button>
+        </div>
+      );
+    }
+
+    /**
+     * Course Catalog view
+     */
+    function CourseCatalog({ courses, onSelectCourse }) {
+      return (
+        <div className="catalog-container">
+          <div className="catalog-header">
+            <h1 className="app-title">
+              <span className="title-emoji">🎓</span>
+              LearnKids AI
+            </h1>
+            <p className="app-subtitle">
+              Choose a course and start your coding adventure!
+            </p>
+          </div>
+
+          <div className="courses-grid">
+            {courses.map(course => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                onSelect={onSelectCourse}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /**
+     * Lesson Viewer component
+     */
+    function LessonViewer({ lesson, courseId, onBack, onComplete }) {
+      const [userCode, setUserCode] = useState(lesson.exercise?.template || '');
+      const [checking, setChecking] = useState(false);
+      const [result, setResult] = useState(null);
+      const [showHint, setShowHint] = useState(false);
+
+      const handleCheckAnswer = async () => {
+        setChecking(true);
+        setResult(null);
+
+        try {
+          const data = await callTool('checkAnswer', {
+            courseId,
+            lessonId: lesson.id,
+            answer: userCode
+          });
+
+          setResult(data);
+
+          if (data.correct) {
+            // Wait a bit to show success message, then allow next
+            setTimeout(() => {
+              if (onComplete) {
+                onComplete(lesson.id, data);
+              }
+            }, 2000);
+          }
+        } catch (error) {
+          setResult({
+            correct: false,
+            message: 'Something went wrong. Please try again!'
+          });
+        } finally {
+          setChecking(false);
+        }
+      };
+
+      return (
+        <div className="lesson-container">
+          {/* Header */}
+          <div className="lesson-header">
+            <button className="back-button" onClick={onBack}>
+              ← Back to courses
+            </button>
+            <h2 className="lesson-title">{lesson.title}</h2>
+            <div className="lesson-meta">
+              Lesson {lesson.order} • {lesson.duration}
+            </div>
+          </div>
+
+          {/* Character & Greeting */}
+          <div className="lesson-character">
+            <div className="character-emoji">{lesson.content.character}</div>
+            <div className="character-name">{lesson.content.characterName}</div>
+            <div className="character-greeting">{lesson.content.greeting}</div>
+          </div>
+
+          {/* Explanation */}
+          <div className="lesson-explanation">
+            <h3>📖 Let's Learn</h3>
+            <div className="explanation-text">
+              {formatText(lesson.content.explanation)}
+            </div>
+          </div>
+
+          {/* Examples */}
+          {lesson.content.examples && lesson.content.examples.length > 0 && (
+            <div className="lesson-examples">
+              <h3>💡 Examples</h3>
+              {lesson.content.examples.map((example, idx) => (
+                <div key={idx} className="example-item">
+                  <div className="code-block">{example.code}</div>
+                  <div className="example-explanation">{example.explanation}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Fun Fact */}
+          {lesson.content.funFact && (
+            <div className="fun-fact">
+              <span className="fun-fact-icon">🤓</span>
+              <strong>Fun Fact:</strong> {lesson.content.funFact}
+            </div>
+          )}
+
+          {/* Exercise */}
+          {lesson.exercise && (
+            <div className="lesson-exercise">
+              <h3>✏️ Your Turn!</h3>
+              <p className="exercise-instruction">{lesson.exercise.instruction}</p>
+
+              <div className="code-editor-container">
+                <textarea
+                  className="code-editor"
+                  value={userCode}
+                  onChange={(e) => setUserCode(e.target.value)}
+                  rows={6}
+                  spellCheck={false}
+                  placeholder="Write your code here..."
+                />
+              </div>
+
+              <div className="exercise-actions">
+                <button
+                  className="button button-primary"
+                  onClick={handleCheckAnswer}
+                  disabled={checking || !userCode.trim()}
+                >
+                  {checking ? '⏳ Checking...' : '✅ Check My Answer'}
+                </button>
+
+                {lesson.exercise.hint && !showHint && (
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setShowHint(true)}
+                  >
+                    💡 Need a Hint?
+                  </button>
+                )}
+              </div>
+
+              {/* Hint */}
+              {showHint && lesson.exercise.hint && (
+                <div className="hint-box">
+                  <strong>💡 Hint:</strong> {lesson.exercise.hint}
+                </div>
+              )}
+
+              {/* Result */}
+              {result && (
+                <div className={`result-box ${result.correct ? 'success' : 'error'}`}>
+                  <div className="result-icon">
+                    {result.correct ? '🎉' : '💪'}
+                  </div>
+                  <div className="result-message">{result.message}</div>
+
+                  {result.correct && result.reward && (
+                    <div className="reward-box">
+                      <div className="reward-stars">
+                        {'⭐'.repeat(result.reward.stars || 1)}
+                      </div>
+                      {result.reward.badge && (
+                        <div className="reward-badge">
+                          🏆 Badge Earned: {result.reward.badge}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Completion Message */}
+          {lesson.isFinalLesson && lesson.completionMessage && result && result.correct && (
+            <div className="completion-message">
+              <div className="completion-icon">🎓</div>
+              <h2>Course Complete!</h2>
+              <div className="completion-text">
+                {formatText(lesson.completionMessage)}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /**
+     * Main App Component
+     */
+    function App() {
+      const [view, setView] = useState('loading'); // 'loading' | 'catalog' | 'lesson' | 'error'
+      const [courses, setCourses] = useState([]);
+      const [currentLesson, setCurrentLesson] = useState(null);
+      const [currentCourseId, setCurrentCourseId] = useState(null);
+      const [progress, setProgress] = useState({
+        completedLessons: [],
+        earnedStars: 0
+      });
+      const [error, setError] = useState(null);
+
+      // Initialize: Load courses and saved state
+      useEffect(() => {
+        async function initialize() {
+          try {
+            // Load saved state
+            const savedState = loadWidgetState();
+            if (savedState && savedState.progress) {
+              setProgress(savedState.progress);
+            }
+
+            // Load courses
+            const data = await callTool('getCourses');
+            setCourses(data.courses);
+            setView('catalog');
+          } catch (err) {
+            console.error('[LearnKids UI] Initialization error:', err);
+            setError(err.message);
+            setView('error');
+          }
+        }
+
+        initialize();
+      }, []);
+
+      // Save progress when it changes
+      useEffect(() => {
+        if (progress.completedLessons.length > 0) {
+          saveWidgetState({
+            version: '1.0',
+            progress,
+            currentCourseId,
+            lastAccessed: new Date().toISOString()
+          });
+        }
+      }, [progress, currentCourseId]);
+
+      // Handle course selection
+      const handleSelectCourse = async (courseId) => {
+        try {
+          setView('loading');
+
+          // Get first lesson
+          const data = await callTool('getLesson', {
+            courseId,
+            lessonId: 'lesson-1'
+          });
+
+          setCurrentCourseId(courseId);
+          setCurrentLesson(data.lesson);
+          setView('lesson');
+        } catch (err) {
+          console.error('[LearnKids UI] Error loading lesson:', err);
+          setError(err.message);
+          setView('error');
+        }
+      };
+
+      // Handle lesson completion
+      const handleLessonComplete = async (lessonId, result) => {
+        // Update progress
+        const newProgress = {
+          completedLessons: [...new Set([...progress.completedLessons, lessonId])],
+          earnedStars: progress.earnedStars + (result.reward?.stars || 1)
+        };
+        setProgress(newProgress);
+
+        // If there's a next lesson, load it after a short delay
+        if (result.nextLesson && !currentLesson.isFinalLesson) {
+          setTimeout(async () => {
+            try {
+              const data = await callTool('getLesson', {
+                courseId: currentCourseId,
+                lessonId: result.nextLesson
+              });
+
+              setCurrentLesson(data.lesson);
+            } catch (err) {
+              console.error('[LearnKids UI] Error loading next lesson:', err);
+            }
+          }, 3000);
+        }
+      };
+
+      // Handle back to catalog
+      const handleBackToCatalog = () => {
+        setCurrentLesson(null);
+        setCurrentCourseId(null);
+        setView('catalog');
+      };
+
+      // Handle retry after error
+      const handleRetry = () => {
+        setError(null);
+        setView('loading');
+        window.location.reload();
+      };
+
+      // Render based on view
+      if (view === 'loading') {
+        return <LoadingSpinner />;
+      }
+
+      if (view === 'error') {
+        return <ErrorMessage message={error} onRetry={handleRetry} />;
+      }
+
+      if (view === 'catalog') {
+        return (
+          <CourseCatalog
+            courses={courses}
+            onSelectCourse={handleSelectCourse}
+          />
+        );
+      }
+
+      if (view === 'lesson' && currentLesson) {
+        return (
+          <LessonViewer
+            lesson={currentLesson}
+            courseId={currentCourseId}
+            onBack={handleBackToCatalog}
+            onComplete={handleLessonComplete}
+          />
+        );
+      }
+
+      return <div>Unknown state</div>;
+    }
+
+    // ========================================================================
+    // ERROR BOUNDARY
+    // ========================================================================
+
+    class ErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+      }
+
+      static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+      }
+
+      componentDidCatch(error, errorInfo) {
+        console.error('[LearnKids UI] Error boundary caught:', error, errorInfo);
+      }
+
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div className="error-container">
+              <div className="error-emoji">😅</div>
+              <h2>Oops! Something went wrong</h2>
+              <p>Let's start fresh!</p>
+              <button
+                className="button button-primary"
+                onClick={() => window.location.reload()}
+              >
+                🔄 Restart
+              </button>
+            </div>
+          );
+        }
+
+        return this.props.children;
+      }
+    }
+
+    // ========================================================================
+    // RENDER APP
+    // ========================================================================
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    );
+
+    console.log('[LearnKids UI] App initialized! 🚀');
+  </script>
+</body>
+</html>

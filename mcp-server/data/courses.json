@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-12-26",
+  "courses": [
+    {
+      "id": "python-kids",
+      "title": "Python for Kids",
+      "emoji": "🐍",
+      "color": "#8B5CF6",
+      "description": "Learn programming through play! Discover how to talk to computers using Python.",
+      "ageRange": "8-12 years",
+      "difficulty": "beginner",
+      "totalLessons": 5,
+      "estimatedDuration": "25 minutes",
+      "prerequisites": [],
+      "learningObjectives": [
+        "Understand what variables are and how to use them",
+        "Work with numbers and do math in Python",
+        "Create and manipulate text (strings)",
+        "Use lists to store multiple items",
+        "Write your first functions"
+      ],
+      "lessonIds": [
+        "lesson-1",
+        "lesson-2",
+        "lesson-3",
+        "lesson-4",
+        "lesson-5"
+      ],
+      "rewards": {
+        "totalStars": 5,
+        "certificateAvailable": true,
+        "badges": ["First Variable", "Math Wizard", "String Master", "List Hero", "Function Creator"]
+      }
+    }
+  ]
+}

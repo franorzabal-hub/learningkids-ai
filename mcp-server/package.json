@@ -1,0 +1,33 @@
+{
+  "name": "learningkids-mcp-server",
+  "version": "2.0.0",
+  "description": "MCP server for LearnKids AI - Educational platform for children (Vercel SSE)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "start:stdio": "node index.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "mcp",
+    "education",
+    "chatgpt",
+    "apps-sdk",
+    "learning",
+    "vercel",
+    "sse"
+  ],
+  "author": "LearnKids Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "zod": "^3.22.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

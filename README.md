@@ -1,0 +1,190 @@
+# 🎓 LearnKids AI - Educational Platform for Children
+
+> A 100% automated learning management system (LMS) built with OpenAI's Apps SDK, designed for elementary school children (ages 7-12).
+
+## 📋 Project Overview
+
+**LearnKids AI** is a ChatGPT-native learning platform that provides:
+- 🎨 Interactive, visually-rich courses designed for children
+- 🤖 AI tutor available 24/7 for personalized help
+- 📊 Automatic progress tracking
+- ⭐ Gamification with stars and badges
+- 🚀 Zero-friction onboarding (no login required)
+
+### Core Value Proposition
+Children can install the app, browse available courses, choose one, and start learning immediately - all within ChatGPT, with an AI tutor that understands their progress and adapts explanations to their level.
+
+## 🏗️ Architecture
+
+```
+┌──────────────────────────────────────┐
+│  CHATGPT APPS SDK                    │
+│  (User Interface Layer)              │
+├──────────────────────────────────────┤
+│  📱 Web Component (React)            │
+│  ├─ Course Catalog (Inline)         │
+│  ├─ Lesson Viewer (Fullscreen)      │
+│  ├─ Interactive Exercises           │
+│  └─ Progress Dashboard              │
+└──────────────────────────────────────┘
+              ↕️
+┌──────────────────────────────────────┐
+│  MCP SERVER (Backend Logic)          │
+├──────────────────────────────────────┤
+│  🛠️ Tools:                           │
+│  ├─ getCourses()                    │
+│  ├─ getCourse(id)                   │
+│  ├─ getLesson(courseId, lessonId)  │
+│  ├─ checkAnswer(lessonId, answer)  │
+│  ├─ saveProgress(lessonId)          │
+│  └─ getProgress()                   │
+└──────────────────────────────────────┘
+              ↕️
+┌──────────────────────────────────────┐
+│  STORAGE                             │
+├──────────────────────────────────────┤
+│  📚 Static JSON files (content)      │
+│  💾 ChatGPT Widget State (progress)  │
+└──────────────────────────────────────┘
+```
+
+## 📁 Project Structure
+
+```
+learningkids-ai/
+├── README.md                    # This file
+├── docs/
+│   ├── ARCHITECTURE.md          # Detailed architecture documentation
+│   ├── APPS_SDK_GUIDE.md        # Apps SDK best practices & patterns
+│   ├── CONTENT_GUIDE.md         # Guidelines for creating educational content
+│   ├── DEPLOYMENT.md            # Deployment instructions
+│   ├── PROGRESS_TRACKER.md      # Project progress and milestones
+│   └── TESTING.md               # Testing strategy and checklist
+├── mcp-server/
+│   ├── index.js                 # MCP server implementation
+│   ├── package.json             # Node.js dependencies
+│   ├── data/
+│   │   ├── courses.json         # Course catalog
+│   │   └── lessons/             # Lesson content by course
+│   │       └── python-kids.json
+│   └── README.md                # MCP server documentation
+├── web-component/
+│   ├── index.html               # Main UI entry point
+│   ├── app.js                   # React application logic
+│   ├── styles.css               # Styles optimized for children
+│   ├── assets/
+│   │   └── images/              # Illustrations and icons
+│   └── README.md                # Web component documentation
+└── .gitignore
+```
+
+## 🎯 MVP Scope (Week 1)
+
+### Included Features
+- ✅ 1 complete course: "Python for Kids" (5 lessons)
+- ✅ Course catalog with visual cards
+- ✅ Interactive lesson viewer
+- ✅ Code exercises with validation
+- ✅ Progress tracking (localStorage)
+- ✅ Kid-friendly UI with emojis and colors
+- ✅ AI tutor integration (ChatGPT context-aware)
+
+### Not Included in MVP
+- ❌ Multiple courses (coming in v2)
+- ❌ Badges/achievements system (coming in v2)
+- ❌ Parent dashboard (coming in v3)
+- ❌ User authentication (not needed - ChatGPT handles identity)
+- ❌ Video content (text + code for MVP)
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+ installed
+- ChatGPT Plus subscription (for Apps SDK access)
+- Basic knowledge of deploying to Railway/Render (optional for development)
+
+### Local Development
+
+```bash
+# 1. Clone the repository
+git clone <repo-url>
+cd learningkids-ai
+
+# 2. Install MCP server dependencies
+cd mcp-server
+npm install
+
+# 3. Start MCP server locally
+npm start
+
+# 4. Expose server publicly (for ChatGPT to access)
+npx ngrok http 3000
+
+# 5. Configure in ChatGPT
+# - Go to ChatGPT > Settings > Developer Mode
+# - Add MCP Connector with ngrok URL
+# - Point to web-component/index.html
+```
+
+### Production Deployment
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, and technical decisions |
+| [APPS_SDK_GUIDE.md](docs/APPS_SDK_GUIDE.md) | Apps SDK best practices from official docs |
+| [CONTENT_GUIDE.md](docs/CONTENT_GUIDE.md) | How to create age-appropriate educational content |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Step-by-step deployment guide |
+| [PROGRESS_TRACKER.md](docs/PROGRESS_TRACKER.md) | Development milestones and status |
+| [TESTING.md](docs/TESTING.md) | Testing strategy and QA checklist |
+
+## 🎨 Design Principles
+
+### For Children (Ages 7-12)
+1. **Visual First**: Use emojis, large fonts, bright colors
+2. **Simple Language**: Short sentences, no jargon
+3. **Immediate Feedback**: Celebrate success, encourage on failure
+4. **Short Lessons**: 5 minutes max per lesson
+5. **One Concept at a Time**: Don't overwhelm
+
+### Technical Principles
+1. **Zero Configuration**: Works immediately after installation
+2. **Stateless Backend**: All user state in ChatGPT widget state
+3. **Static Content**: No database needed for MVP
+4. **Fail Gracefully**: Friendly error messages
+5. **Fast Loading**: Optimize for quick response times
+
+## 🛠️ Technology Stack
+
+- **Frontend**: Vanilla React 18 (via CDN), HTML5, CSS3
+- **Backend**: Node.js 20+, MCP SDK (@modelcontextprotocol/sdk)
+- **Storage**: JSON files (content), ChatGPT Widget State (user progress)
+- **Hosting**: Railway/Render (free tier sufficient for MVP)
+- **Distribution**: ChatGPT App Store (when submitted)
+
+## 📊 Project Status
+
+Current Phase: **MVP Development**
+
+See [docs/PROGRESS_TRACKER.md](docs/PROGRESS_TRACKER.md) for detailed progress.
+
+## 🤝 Contributing
+
+This is a learning project built for educational purposes. Contributions welcome!
+
+## 📄 License
+
+MIT License - feel free to use this as a template for your own educational apps.
+
+## 🙏 Acknowledgments
+
+- Built with OpenAI's Apps SDK
+- Uses Model Context Protocol (MCP)
+- Inspired by Digital House and other coding bootcamps
+
+---
+
+**Built with ❤️ for young learners everywhere**
