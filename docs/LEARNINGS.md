@@ -363,12 +363,12 @@ export { handler as GET, handler as POST, handler as OPTIONS };
 - While `/api` works for generic MCP clients, ChatGPT specifically looks for `/mcp`
 
 **Additional Constraints Discovered**:
-1. **Plan Restrictions**: MCP only available on:
+1. **Plan Restrictions**: MCP available on:
    - ✅ ChatGPT Business
    - ✅ ChatGPT Enterprise
    - ✅ ChatGPT Education
-   - ❌ ChatGPT Plus (NO MCP support)
-   - ❌ ChatGPT Free (NO MCP support)
+   - ✅ ChatGPT Plus (**CONFIRMED WORKING** - contradicts earlier documentation)
+   - ❌ ChatGPT Free (NO MCP support confirmed)
 
 2. **Settings Requirements**:
    - Developer Mode must be enabled
@@ -401,6 +401,8 @@ export { handler as GET, handler as POST, handler as OPTIONS };
 - **Read platform docs** - ChatGPT has specific requirements beyond MCP spec
 
 **Impact**: Broadens compatibility - now works with both ChatGPT and Claude Desktop/other MCP clients.
+
+**Update (2025-12-26)**: User confirmed MCP working on ChatGPT Plus tier, contradicting earlier documentation that claimed Plus didn't support MCP. OpenAI may have recently enabled MCP for Plus, or documentation was incorrect.
 
 ---
 
@@ -792,6 +794,8 @@ Not just "We use Vercel" - explain **why**.
 14. ✅ **Infrastructure matters** - Serverless functions ≠ persistent connections; choose platform based on use case
 15. ✅ **IAM security-by-default** - New GCP projects require explicit permission grants (feature, not bug)
 16. ✅ **CLI control important** - Full `gcloud` access enables proper debugging and deployment control
+17. ✅ **Verify documentation claims** - ChatGPT Plus DOES support MCP (contrary to docs found online)
+18. ✅ **Session ID promotion pattern** - When client generates sessionId, use temp keys and promote on first POST
 
 ---
 
@@ -871,6 +875,21 @@ Not just "We use Vercel" - explain **why**.
   - ✅ Full CLI control via `gcloud` (deploy, logs, debugging)
   - ✅ Production-grade infrastructure with generous free tier
   - ✅ ChatGPT can now establish stable SSE connections
+
+**Part 5: Production Success & ChatGPT Plus Discovery**
+- **Deployment Result**: Successfully deployed to Cloud Run (revision 00003)
+- **Connection Verified**: ChatGPT connecting and receiving tool list
+- **Session Management**: Temp-to-real session promotion working correctly
+- **ChatGPT Plus Discovery**:
+  - User confirmed MCP fully functional on ChatGPT Plus tier
+  - Contradicts earlier documentation claiming Plus doesn't support MCP
+  - Either OpenAI recently enabled it, or docs were incorrect
+  - **Impact**: LearnKids AI accessible to broader audience (Plus users)
+- **Production Status**:
+  - ✅ Server healthy and responding
+  - ✅ All 4 tools (getCourses, getCourse, getLesson, checkAnswer) accessible
+  - ✅ SSE connections stable with 3600s timeout
+  - ✅ Ready for actual student use
 
 ---
 

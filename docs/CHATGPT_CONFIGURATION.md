@@ -23,9 +23,11 @@ Before connecting ChatGPT to your MCP server:
 - Health check passing: `https://learningkids-ai-470541916594.us-central1.run.app/health`
 
 ✅ **ChatGPT Requirements**
-- **ChatGPT Business**, **Enterprise**, or **Education** plan (MCP not available on Plus/Free)
+- **ChatGPT Plus**, **Business**, **Enterprise**, or **Education** plan (✅ Confirmed working on Plus)
 - Developer Mode enabled in ChatGPT settings
 - Access to ChatGPT Settings → Connectors panel
+
+**Note**: Earlier documentation suggested MCP wasn't available on Plus, but this has been verified working on ChatGPT Plus as of December 2025.
 
 **Alternative:**
 - Claude Desktop with MCP support (works with free Claude account)
@@ -221,8 +223,8 @@ Expected: Validation result with feedback
    ❌ `https://learningkids-ai-470541916594.us-central1.run.app/mcp/` (trailing slash)
 
 3. Verify ChatGPT plan supports MCP:
-   - ✅ Business, Enterprise, or Education plans
-   - ❌ Plus or Free plans (MCP not available)
+   - ✅ Plus, Business, Enterprise, or Education plans
+   - ❌ Free plan only (MCP not available)
 
 4. Test with `mcp-remote`:
    ```bash

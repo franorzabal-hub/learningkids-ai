@@ -167,7 +167,7 @@ gcloud run deploy learningkids-ai \
 
 ### Prerequisites
 - Node.js 20+ installed
-- ChatGPT Business/Enterprise/Education plan (MCP not available on Plus)
+- ChatGPT Plus or higher (MCP confirmed working on Plus, Business, Enterprise, Education)
 - GitHub account (for deployment)
 - Railway account (free tier: $5/month credit) OR Vercel account
 
