@@ -1,8 +1,8 @@
 /**
  * LearnKids AI - MCP Endpoint for ChatGPT
  *
- * ChatGPT expects the endpoint at /mcp
- * This file creates: /api/mcp/[transport] → basePath: /api/mcp
+ * ChatGPT expects the endpoint at /mcp (not /api/mcp)
+ * This file creates: /mcp/[transport] → basePath: /mcp
  *
  * @version 2.0.0
  */
@@ -27,7 +27,7 @@ async function loadCourses() {
   if (coursesData) return coursesData;
 
   try {
-    const coursesPath = path.join(__dirname, '..', '..', 'mcp-server', 'data', 'courses.json');
+    const coursesPath = path.join(__dirname, '..', 'mcp-server', 'data', 'courses.json');
     const data = await fs.readFile(coursesPath, 'utf-8');
     coursesData = JSON.parse(data);
     console.log('[LearnKids /mcp] Loaded', coursesData.courses.length, 'courses');
@@ -44,7 +44,7 @@ async function loadLessons(courseId) {
   }
 
   try {
-    const lessonsPath = path.join(__dirname, '..', '..', 'mcp-server', 'data', 'lessons', `${courseId}.json`);
+    const lessonsPath = path.join(__dirname, '..', 'mcp-server', 'data', 'lessons', `${courseId}.json`);
     const data = await fs.readFile(lessonsPath, 'utf-8');
     const lessons = JSON.parse(data);
     lessonsCache.set(courseId, lessons);
@@ -344,7 +344,7 @@ const handler = createMcpHandler(
     },
   },
   {
-    basePath: '/api/mcp',
+    basePath: '/mcp',
     maxDuration: 60,
     verboseLogs: true,
   }

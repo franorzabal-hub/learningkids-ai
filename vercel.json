@@ -4,6 +4,10 @@
     "api/**/*.js": {
       "maxDuration": 60,
       "includeFiles": "mcp-server/data/**"
+    },
+    "mcp/**/*.js": {
+      "maxDuration": 60,
+      "includeFiles": "mcp-server/data/**"
     }
   }
 }

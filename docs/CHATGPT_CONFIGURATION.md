@@ -68,12 +68,12 @@ Use `mcp-remote` to proxy HTTP into stdio for older clients.
    ```json
    {
      "name": "LearnKids AI",
-     "url": "https://learningkids-ai.vercel.app/api/mcp",
+     "url": "https://learningkids-ai.vercel.app/mcp",
      "description": "Interactive learning platform for kids"
    }
    ```
 
-   **Note:** ChatGPT expects the endpoint at `/mcp`. We also provide `/api` for other MCP clients.
+   **Note:** ChatGPT expects the endpoint at `/mcp`. We also provide `/api` for other MCP clients like Claude Desktop.
 
 3. **Save Configuration**
    - Click "Save" or "Add Server"
@@ -109,14 +109,14 @@ If using Claude Desktop or another MCP client that requires stdio:
          "args": [
            "-y",
            "mcp-remote",
-           "https://learningkids-ai.vercel.app/api/mcp"
+           "https://learningkids-ai.vercel.app/api"
          ]
        }
      }
    }
    ```
 
-   **Note:** Both `/api` and `/api/mcp` work with Claude Desktop, but we use `/api/mcp` for consistency.
+   **Note:** Claude Desktop works best with `/api` endpoint. ChatGPT uses `/mcp`.
 
 3. **Restart Claude Desktop**
    - Close and reopen Claude Desktop
@@ -130,8 +130,8 @@ Generic configuration for MCP-compatible clients:
 
 **Connection Type:** HTTP/SSE
 **Endpoints:**
-- `https://learningkids-ai.vercel.app/api/mcp` (recommended for ChatGPT)
-- `https://learningkids-ai.vercel.app/api` (generic MCP clients)
+- `https://learningkids-ai.vercel.app/mcp` (for ChatGPT Apps SDK)
+- `https://learningkids-ai.vercel.app/api` (for Claude Desktop and other MCP clients)
 
 **Protocol:** Server-Sent Events (SSE)
 **Authentication:** None (public endpoint)
@@ -217,9 +217,9 @@ Expected: Validation result with feedback
    ```
 
 2. Check endpoint URL is correct (no trailing slash):
-   ✅ `https://learningkids-ai.vercel.app/api/mcp` (for ChatGPT)
-   ✅ `https://learningkids-ai.vercel.app/api` (for other clients)
-   ❌ `https://learningkids-ai.vercel.app/api/mcp/` (trailing slash)
+   ✅ `https://learningkids-ai.vercel.app/mcp` (for ChatGPT)
+   ✅ `https://learningkids-ai.vercel.app/api` (for Claude Desktop)
+   ❌ `https://learningkids-ai.vercel.app/mcp/` (trailing slash)
 
 3. Verify ChatGPT plan supports MCP:
    - ✅ Business, Enterprise, or Education plans
@@ -227,7 +227,11 @@ Expected: Validation result with feedback
 
 4. Test with `mcp-remote`:
    ```bash
-   npx -y mcp-remote https://learningkids-ai.vercel.app/api/mcp
+   # For ChatGPT endpoint:
+   npx -y mcp-remote https://learningkids-ai.vercel.app/mcp
+
+   # For Claude Desktop endpoint:
+   npx -y mcp-remote https://learningkids-ai.vercel.app/api
    ```
 
 ---
@@ -359,8 +363,8 @@ npx -y mcp-remote https://learningkids-ai.vercel.app/api
 - **Production:** `https://learningkids-ai.vercel.app`
 - **Health Check:** `https://learningkids-ai.vercel.app/api/health`
 - **MCP Endpoints:**
-  - ChatGPT: `https://learningkids-ai.vercel.app/api/mcp`
-  - Other clients: `https://learningkids-ai.vercel.app/api`
+  - ChatGPT Apps SDK: `https://learningkids-ai.vercel.app/mcp`
+  - Claude Desktop / Other: `https://learningkids-ai.vercel.app/api`
 - **GitHub:** `https://github.com/franorzabal-hub/learningkids-ai`
 - **Vercel Dashboard:** `https://vercel.com/francisco-orzabals-projects/learningkids-ai`
 
