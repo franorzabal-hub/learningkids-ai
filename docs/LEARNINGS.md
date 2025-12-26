@@ -3,7 +3,7 @@
 > Knowledge base capturing architectural decisions, errors solved, and lessons learned during development.
 
 **Last Updated**: 2025-12-26
-**Project Version**: 2.2.0 (Cloud Run Unified Server)
+**Project Version**: 2.3.0 (OpenAI Apps SDK Best Practices)
 
 ---
 
@@ -140,7 +140,60 @@ if (!session && value.temp) {
 
 ---
 
-### 6. Why ChatGPT Widget State for User Progress?
+### 6. OpenAI Apps SDK Best Practices (v2.3.0)
+
+**Decision**: Implement full OpenAI Apps SDK patterns for widget integration.
+
+**Improvements Made**:
+
+1. **Widget as MCP Resource**:
+```javascript
+// Register widget with ui:// URI scheme
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  resources: [{
+    uri: 'ui://widget/learningkids.html',
+    mimeType: 'text/html+skybridge',
+    _meta: {
+      'openai/widgetDomain': 'learningkids',
+      'openai/widgetCSP': { connect_domains: [...], resource_domains: [...] },
+      'openai/widgetDescription': '...',
+    },
+  }],
+}));
+```
+
+2. **outputTemplate Linking**:
+```javascript
+// Tools point to widget via outputTemplate
+_meta: {
+  'openai/outputTemplate': 'ui://widget/learningkids.html',
+  'openai/widgetAccessible': true,
+  'openai/resultCanProduceWidget': true,
+}
+```
+
+3. **Widget Accessibility**:
+- Enabled `widgetAccessible: true` for all tools
+- Allows widget to call tools via `window.openai.callTool()`
+- Enables interactive experiences within the widget
+
+4. **CSP Configuration**:
+```javascript
+'openai/widgetCSP': {
+  connect_domains: ['https://learningkids-ai-...run.app'],
+  resource_domains: ['https://unpkg.com', 'https://*.oaistatic.com'],
+}
+```
+
+**Why These Improvements Matter**:
+- ChatGPT can now properly display the widget when tools are called
+- Widget is self-contained with inlined CSS
+- Proper security via CSP domains
+- Better UX with widgetDescription reducing redundant text
+
+---
+
+### 7. Why ChatGPT Widget State for User Progress?
 
 **Decision**: Store user progress in ChatGPT's widget state, not backend.
 
@@ -378,6 +431,7 @@ if (url.pathname === '/health') {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3.0 | 2025-12-26 | OpenAI Apps SDK best practices (widget resources, outputTemplate, widgetAccessible) |
 | 2.2.0 | 2025-12-26 | Unified server (MCP + static files), removed Vercel/Railway |
 | 2.1.0 | 2025-12-26 | Cloud Run deployment, persistent server |
 | 2.0.0 | 2025-12-26 | Vercel + mcp-handler migration |

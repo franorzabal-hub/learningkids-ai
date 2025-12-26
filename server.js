@@ -18,6 +18,8 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +29,17 @@ const PORT = process.env.PORT || 8000;
 const SSE_PATH = '/mcp';
 const POST_PATH = '/mcp/messages';
 const WEB_COMPONENT_DIR = path.join(__dirname, 'web-component');
+
+// Widget configuration for OpenAI Apps SDK
+const WIDGET_URI = 'ui://widget/learningkids.html';
+const WIDGET_TITLE = 'LearnKids AI - Interactive Learning Platform';
+const WIDGET_DOMAIN = 'learningkids';
+
+// Widget CSP configuration - domains the widget can connect to
+const WIDGET_CSP = {
+  connect_domains: ['https://learningkids-ai-470541916594.us-central1.run.app'],
+  resource_domains: ['https://unpkg.com', 'https://*.oaistatic.com'],
+};
 
 // MIME types for static files
 const MIME_TYPES = {
@@ -93,6 +106,35 @@ function isValidCourseId(courseId) {
   return coursesData.courses.some(course => course.id === courseId);
 }
 
+// Widget HTML cache
+let widgetHtml = null;
+
+async function loadWidgetHtml() {
+  if (widgetHtml) return widgetHtml;
+
+  try {
+    const indexPath = path.join(WEB_COMPONENT_DIR, 'index.html');
+    const cssPath = path.join(WEB_COMPONENT_DIR, 'styles.css');
+
+    const [htmlContent, cssContent] = await Promise.all([
+      fs.readFile(indexPath, 'utf-8'),
+      fs.readFile(cssPath, 'utf-8').catch(() => ''),
+    ]);
+
+    // Inline the CSS into the HTML for widget self-containment
+    widgetHtml = htmlContent.replace(
+      '<link rel="stylesheet" href="styles.css">',
+      `<style>${cssContent}</style>`
+    );
+
+    console.log('[LearnKids] Widget HTML loaded and CSS inlined');
+    return widgetHtml;
+  } catch (error) {
+    console.error('[LearnKids] Error loading widget HTML:', error);
+    throw new Error('Failed to load widget HTML');
+  }
+}
+
 // ============================================================================
 // STATIC FILE SERVING
 // ============================================================================
@@ -136,14 +178,70 @@ function createMcpServer() {
   const server = new Server(
     {
       name: 'learningkids-server',
-      version: '2.2.0',
+      version: '2.3.0',
     },
     {
       capabilities: {
         tools: {},
+        resources: {},
       },
     }
   );
+
+  // ============================================================================
+  // RESOURCES - Widget Registration (OpenAI Apps SDK best practice)
+  // ============================================================================
+
+  // List available resources (the widget)
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    return {
+      resources: [
+        {
+          uri: WIDGET_URI,
+          name: 'learningkids-widget',
+          title: WIDGET_TITLE,
+          description: 'Interactive learning platform widget for kids education with courses, lessons, and exercises',
+          mimeType: 'text/html+skybridge',
+          _meta: {
+            'openai/widgetDomain': WIDGET_DOMAIN,
+            'openai/widgetCSP': WIDGET_CSP,
+            'openai/widgetPrefersBorder': true,
+            'openai/widgetDescription': 'Shows an interactive learning platform with courses, lessons, and coding exercises for kids.',
+          },
+        },
+      ],
+    };
+  });
+
+  // Read resource content (returns the widget HTML)
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const { uri } = request.params;
+
+    if (uri === WIDGET_URI) {
+      const html = await loadWidgetHtml();
+
+      return {
+        contents: [
+          {
+            uri: WIDGET_URI,
+            mimeType: 'text/html+skybridge',
+            text: html,
+            _meta: {
+              'openai/widgetDomain': WIDGET_DOMAIN,
+              'openai/widgetCSP': WIDGET_CSP,
+              'openai/widgetPrefersBorder': true,
+              'openai/widgetDescription': 'Shows an interactive learning platform with courses, lessons, and coding exercises for kids.',
+            },
+          },
+        ],
+      };
+    }
+
+    return {
+      contents: [],
+      isError: true,
+    };
+  });
 
   // List available tools
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -159,7 +257,9 @@ function createMcpServer() {
           },
           _meta: {
             'openai/visibility': 'public',
-            'openai/widgetAccessible': false,
+            'openai/outputTemplate': WIDGET_URI,
+            'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Loading courses...',
             'openai/toolInvocation/invoked': 'Courses loaded',
           },
@@ -181,7 +281,9 @@ function createMcpServer() {
           },
           _meta: {
             'openai/visibility': 'public',
-            'openai/widgetAccessible': false,
+            'openai/outputTemplate': WIDGET_URI,
+            'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Loading course details...',
             'openai/toolInvocation/invoked': 'Course details loaded',
           },
@@ -209,7 +311,9 @@ function createMcpServer() {
           },
           _meta: {
             'openai/visibility': 'public',
-            'openai/widgetAccessible': false,
+            'openai/outputTemplate': WIDGET_URI,
+            'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Loading lesson...',
             'openai/toolInvocation/invoked': 'Lesson ready',
           },
@@ -242,7 +346,9 @@ function createMcpServer() {
           },
           _meta: {
             'openai/visibility': 'public',
-            'openai/widgetAccessible': false,
+            'openai/outputTemplate': WIDGET_URI,
+            'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Checking your work...',
             'openai/toolInvocation/invoked': 'Feedback ready',
           },
@@ -280,6 +386,10 @@ function createMcpServer() {
             ],
             structuredContent: {
               courses: coursesList,
+            },
+            _meta: {
+              'openai/outputTemplate': WIDGET_URI,
+              'openai/widgetAccessible': true,
             },
           };
         }
@@ -322,6 +432,10 @@ function createMcpServer() {
                 learningObjectives: course.learningObjectives || [],
                 lessons: course.lessons || [],
               },
+            },
+            _meta: {
+              'openai/outputTemplate': WIDGET_URI,
+              'openai/widgetAccessible': true,
             },
           };
         }
@@ -376,6 +490,10 @@ function createMcpServer() {
                 examples: lesson.examples,
                 exercise: lesson.exercise,
               },
+            },
+            _meta: {
+              'openai/outputTemplate': WIDGET_URI,
+              'openai/widgetAccessible': true,
             },
           };
         }
@@ -435,6 +553,10 @@ function createMcpServer() {
                 hasAttempt: hasCode,
                 codeLength: studentCode?.length || 0,
               },
+            },
+            _meta: {
+              'openai/outputTemplate': WIDGET_URI,
+              'openai/widgetAccessible': true,
             },
           };
         }
@@ -615,10 +737,12 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'healthy',
-      version: '2.2.0',
-      server: process.env.K_SERVICE ? 'Cloud Run' : 'Railway',
+      version: '2.3.0',
+      server: process.env.K_SERVICE ? 'Cloud Run' : 'Local',
       transport: 'SSE',
       mcp: 'enabled',
+      resources: 'enabled',
+      widget: WIDGET_URI,
     }));
     return;
   }
@@ -628,12 +752,18 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       name: 'LearnKids AI',
-      version: '2.2.0',
+      version: '2.3.0',
       description: 'Interactive learning platform for kids',
       mcp: {
         endpoint: '/mcp',
         transport: 'SSE',
         tools: ['get-courses', 'view-course-details', 'start-lesson', 'check-student-work'],
+        resources: [WIDGET_URI],
+      },
+      openai: {
+        widgetDomain: WIDGET_DOMAIN,
+        widgetAccessible: true,
+        outputTemplate: WIDGET_URI,
       },
       endpoints: {
         health: '/health',
