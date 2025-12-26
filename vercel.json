@@ -1,31 +1,11 @@
 {
   "version": 2,
-  "name": "learningkids-ai",
-  "builds": [
+  "rewrites": [
     {
-      "src": "mcp-server/server.js",
-      "use": "@vercel/node"
+      "source": "/(.*)",
+      "destination": "/mcp-server/server.js"
     }
   ],
-  "routes": [
-    {
-      "src": "/health",
-      "dest": "mcp-server/server.js"
-    },
-    {
-      "src": "/api/mcp",
-      "dest": "mcp-server/server.js",
-      "methods": ["GET", "POST"]
-    },
-    {
-      "src": "/(.*)",
-      "dest": "mcp-server/server.js"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "regions": ["iad1"],
   "functions": {
     "mcp-server/server.js": {
       "memory": 1024,
