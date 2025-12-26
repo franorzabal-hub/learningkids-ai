@@ -3,7 +3,7 @@
 > Knowledge base capturing architectural decisions, errors solved, and lessons learned during development.
 
 **Last Updated**: 2025-12-26
-**Project Version**: 2.3.0 (OpenAI Apps SDK Best Practices)
+**Project Version**: 2.3.1 (Security Best Practices)
 
 ---
 
@@ -431,6 +431,7 @@ if (url.pathname === '/health') {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.3.1 | 2025-12-26 | Security best practices (readOnlyHint, additionalProperties, securitySchemes) |
 | 2.3.0 | 2025-12-26 | OpenAI Apps SDK best practices (widget resources, outputTemplate, widgetAccessible) |
 | 2.2.0 | 2025-12-26 | Unified server (MCP + static files), removed Vercel/Railway |
 | 2.1.0 | 2025-12-26 | Cloud Run deployment, persistent server |
