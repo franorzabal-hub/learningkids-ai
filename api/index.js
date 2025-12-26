@@ -456,10 +456,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (web component)
-app.use(express.static(path.join(__dirname, '..', 'web-component')));
-
-// Health check endpoint
+// Health check endpoint - MUST be before static middleware
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
@@ -467,6 +464,19 @@ app.get('/api/health', (req, res) => {
     version: '2.0.0',
     transport: 'SSE',
     mcp: 'enabled'
+  });
+});
+
+// Simple API info endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'LearnKids AI',
+    version: '2.0.0',
+    endpoints: {
+      health: '/api/health',
+      mcp: '/api/mcp',
+      web: '/'
+    }
   });
 });
 
@@ -521,21 +531,15 @@ app.get('/api/mcp', async (req, res) => {
   }
 });
 
-// Simple API info endpoint
-app.get('/api', (req, res) => {
-  res.json({
-    name: 'LearnKids AI',
-    version: '2.0.0',
-    endpoints: {
-      health: '/api/health',
-      mcp: '/api/mcp',
-      web: '/'
-    }
-  });
-});
+// Serve static files (web component) - After API routes
+app.use(express.static(path.join(__dirname, '..', 'web-component')));
 
-// Catch-all route for SPA
+// Catch-all route for SPA - MUST be last, only for non-API paths
 app.get('*', (req, res) => {
+  // Don't intercept API routes that might have been missed
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
   res.sendFile(path.join(__dirname, '..', 'web-component', 'index.html'));
 });
 
