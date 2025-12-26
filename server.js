@@ -100,65 +100,101 @@ function createMcpServer() {
     return {
       tools: [
         {
-          name: 'getCourses',
-          description: 'Returns a list of all available courses. Use this when the student wants to browse available courses or start learning.',
+          name: 'get-courses',
+          title: 'Browse Learning Courses',
+          description: 'Shows all available educational courses for kids. Safe, read-only operation.',
           inputSchema: {
             type: 'object',
             properties: {},
           },
+          _meta: {
+            'openai/visibility': 'public',
+            'openai/widgetAccessible': false,
+            'openai/toolInvocation/invoking': 'Loading courses...',
+            'openai/toolInvocation/invoked': 'Courses loaded',
+          },
         },
         {
-          name: 'getCourse',
-          description: 'Gets detailed information about a specific course including all lesson titles and objectives.',
+          name: 'view-course-details',
+          title: 'View Course Details',
+          description: 'Shows lesson plan and learning objectives for a specific course. Safe, read-only operation that helps students plan their learning journey.',
           inputSchema: {
             type: 'object',
             properties: {
               courseId: {
                 type: 'string',
-                description: 'The unique identifier of the course (e.g., "python-kids")',
+                description: 'Course ID from the course list (e.g., "python-kids")',
+                pattern: '^[a-z0-9-]+$',
               },
             },
             required: ['courseId'],
           },
-        },
-        {
-          name: 'getLesson',
-          description: 'Retrieves complete content for a specific lesson including explanations, examples, and exercises.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              courseId: {
-                type: 'string',
-                description: 'The course identifier',
-              },
-              lessonId: {
-                type: 'string',
-                description: 'The lesson identifier (e.g., "lesson-1")',
-              },
-            },
-            required: ['courseId', 'lessonId'],
+          _meta: {
+            'openai/visibility': 'public',
+            'openai/widgetAccessible': false,
+            'openai/toolInvocation/invoking': 'Loading course details...',
+            'openai/toolInvocation/invoked': 'Course details loaded',
           },
         },
         {
-          name: 'checkAnswer',
-          description: 'Validates a student\'s code submission for an exercise. Returns whether the answer is correct and provides feedback.',
+          name: 'start-lesson',
+          title: 'Start Learning Lesson',
+          description: 'Loads educational content for a specific lesson. Safe, read-only operation that provides learning materials to students.',
           inputSchema: {
             type: 'object',
             properties: {
               courseId: {
                 type: 'string',
-                description: 'The course identifier',
+                description: 'Course ID (e.g., "python-kids")',
+                pattern: '^[a-z0-9-]+$',
               },
-              lessonId: {
-                type: 'string',
-                description: 'The lesson identifier',
-              },
-              answer: {
-                type: 'string',
-                description: 'The student\'s code submission',
+              lessonNumber: {
+                type: 'number',
+                description: 'Lesson number (1-5)',
+                minimum: 1,
+                maximum: 10,
               },
             },
-            required: ['courseId', 'lessonId', 'answer'],
+            required: ['courseId', 'lessonNumber'],
+          },
+          _meta: {
+            'openai/visibility': 'public',
+            'openai/widgetAccessible': false,
+            'openai/toolInvocation/invoking': 'Loading lesson...',
+            'openai/toolInvocation/invoked': 'Lesson ready',
+          },
+        },
+        {
+          name: 'check-student-work',
+          title: 'Validate Learning Exercise',
+          description: 'Provides feedback on student code exercises. Educational tool for learning validation only.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'Course ID',
+                pattern: '^[a-z0-9-]+$',
+              },
+              lessonNumber: {
+                type: 'number',
+                description: 'Lesson number',
+                minimum: 1,
+                maximum: 10,
+              },
+              studentCode: {
+                type: 'string',
+                description: 'Student\'s code submission',
+                maxLength: 5000,
+              },
+            },
+            required: ['courseId', 'lessonNumber', 'studentCode'],
+          },
+          _meta: {
+            'openai/visibility': 'public',
+            'openai/widgetAccessible': false,
+            'openai/toolInvocation/invoking': 'Checking your work...',
+            'openai/toolInvocation/invoked': 'Feedback ready',
           },
         },
       ],
@@ -171,34 +207,34 @@ function createMcpServer() {
 
     try {
       switch (name) {
-        case 'getCourses': {
+        case 'get-courses': {
           await loadCourses();
+
+          const coursesList = coursesData.courses.map(course => ({
+            id: course.id,
+            title: course.title,
+            emoji: course.emoji,
+            description: course.description,
+            ageRange: course.ageRange,
+            difficulty: course.difficulty,
+            totalLessons: course.totalLessons,
+            estimatedDuration: course.estimatedDuration,
+          }));
+
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify({
-                  success: true,
-                  data: {
-                    courses: coursesData.courses.map(course => ({
-                      id: course.id,
-                      title: course.title,
-                      emoji: course.emoji,
-                      color: course.color,
-                      description: course.description,
-                      ageRange: course.ageRange,
-                      difficulty: course.difficulty,
-                      totalLessons: course.totalLessons,
-                      estimatedDuration: course.estimatedDuration,
-                    })),
-                  },
-                }),
+                text: `Found ${coursesList.length} course${coursesList.length !== 1 ? 's' : ''} available for learning.`,
               },
             ],
+            structuredContent: {
+              courses: coursesList,
+            },
           };
         }
 
-        case 'getCourse': {
+        case 'view-course-details': {
           const { courseId } = args;
           await loadCourses();
 
@@ -207,32 +243,41 @@ function createMcpServer() {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({
-                    success: false,
-                    error: 'Course not found',
-                    errorCode: 'COURSE_NOT_FOUND',
-                  }),
+                  text: `Course "${courseId}" not found. Please use get-courses to see available courses.`,
                 },
               ],
+              isError: true,
             };
           }
 
           const course = coursesData.courses.find(c => c.id === courseId);
+
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify({
-                  success: true,
-                  data: { course },
-                }),
+                text: `Loaded details for "${course.title}" - ${course.totalLessons} lessons covering ${course.description}`,
               },
             ],
+            structuredContent: {
+              course: {
+                id: course.id,
+                title: course.title,
+                description: course.description,
+                ageRange: course.ageRange,
+                difficulty: course.difficulty,
+                totalLessons: course.totalLessons,
+                estimatedDuration: course.estimatedDuration,
+                prerequisites: course.prerequisites || [],
+                learningObjectives: course.learningObjectives || [],
+                lessons: course.lessons || [],
+              },
+            },
           };
         }
 
-        case 'getLesson': {
-          const { courseId, lessonId } = args;
+        case 'start-lesson': {
+          const { courseId, lessonNumber } = args;
           await loadCourses();
 
           if (!isValidCourseId(courseId)) {
@@ -240,31 +285,14 @@ function createMcpServer() {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({
-                    success: false,
-                    error: 'Course not found',
-                    errorCode: 'COURSE_NOT_FOUND',
-                  }),
+                  text: `Course "${courseId}" not found.`,
                 },
               ],
+              isError: true,
             };
           }
 
-          if (lessonId.includes('..') || !lessonId.startsWith('lesson-')) {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    success: false,
-                    error: 'Invalid lesson ID',
-                    errorCode: 'INVALID_LESSON_ID',
-                  }),
-                },
-              ],
-            };
-          }
-
+          const lessonId = `lesson-${lessonNumber}`;
           const lessonsData = await loadLessons(courseId);
           const lesson = lessonsData.lessons.find(l => l.id === lessonId);
 
@@ -273,13 +301,10 @@ function createMcpServer() {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({
-                    success: false,
-                    error: 'Lesson not found',
-                    errorCode: 'LESSON_NOT_FOUND',
-                  }),
+                  text: `Lesson ${lessonNumber} not found in this course. Available lessons: 1-${lessonsData.lessons.length}`,
                 },
               ],
+              isError: true,
             };
           }
 
@@ -287,17 +312,26 @@ function createMcpServer() {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify({
-                  success: true,
-                  data: { lesson },
-                }),
+                text: `Starting "${lesson.title}" - ${lesson.objective}`,
               },
             ],
+            structuredContent: {
+              lesson: {
+                id: lesson.id,
+                number: lessonNumber,
+                title: lesson.title,
+                objective: lesson.objective,
+                duration: lesson.duration,
+                content: lesson.content,
+                examples: lesson.examples,
+                exercise: lesson.exercise,
+              },
+            },
           };
         }
 
-        case 'checkAnswer': {
-          const { courseId, lessonId, answer } = args;
+        case 'check-student-work': {
+          const { courseId, lessonNumber, studentCode } = args;
           await loadCourses();
 
           if (!isValidCourseId(courseId)) {
@@ -305,15 +339,14 @@ function createMcpServer() {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({
-                    success: false,
-                    error: 'Course not found',
-                  }),
+                  text: `Course "${courseId}" not found.`,
                 },
               ],
+              isError: true,
             };
           }
 
+          const lessonId = `lesson-${lessonNumber}`;
           const lessonsData = await loadLessons(courseId);
           const lesson = lessonsData.lessons.find(l => l.id === lessonId);
 
@@ -322,31 +355,37 @@ function createMcpServer() {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify({
-                    success: false,
-                    error: 'Lesson not found',
-                  }),
+                  text: `Lesson ${lessonNumber} not found.`,
                 },
               ],
+              isError: true,
             };
           }
 
-          // Validation logic
-          const isCorrect = answer && answer.trim().length > 0;
+          // Simple validation logic
+          const hasCode = studentCode && studentCode.trim().length > 0;
+          const isCorrect = hasCode && studentCode.trim().length > 5;
+
+          const feedback = isCorrect
+            ? '✨ Great job! Your code looks good.'
+            : hasCode
+              ? 'Good start! Try adding more to your code.'
+              : 'Please write some code to check.';
 
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify({
-                  success: true,
-                  data: {
-                    correct: isCorrect,
-                    message: isCorrect ? 'Great job! ✨' : 'Please write some code first!',
-                  },
-                }),
+                text: feedback,
               },
             ],
+            structuredContent: {
+              validation: {
+                correct: isCorrect,
+                hasAttempt: hasCode,
+                codeLength: studentCode?.length || 0,
+              },
+            },
           };
         }
 
@@ -355,12 +394,10 @@ function createMcpServer() {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify({
-                  success: false,
-                  error: `Unknown tool: ${name}`,
-                }),
+                text: `Tool "${name}" not recognized.`,
               },
             ],
+            isError: true,
           };
       }
     } catch (error) {
@@ -369,12 +406,10 @@ function createMcpServer() {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error.message,
-            }),
+            text: `Error: ${error.message}`,
           },
         ],
+        isError: true,
       };
     }
   });
@@ -548,7 +583,7 @@ const httpServer = createServer(async (req, res) => {
       mcp: {
         endpoint: '/mcp',
         transport: 'SSE',
-        tools: ['getCourses', 'getCourse', 'getLesson', 'checkAnswer'],
+        tools: ['get-courses', 'view-course-details', 'start-lesson', 'check-student-work'],
       },
       endpoints: {
         health: '/health',
