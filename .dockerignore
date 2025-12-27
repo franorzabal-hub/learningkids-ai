@@ -4,6 +4,9 @@ npm-debug.log
 yarn-debug.log
 yarn-error.log
 
+# Widget source (not needed in production, only the built output)
+widget-src
+
 # Git
 .git
 .gitignore

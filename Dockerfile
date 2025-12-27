@@ -1,5 +1,6 @@
 # LearnKids AI - Cloud Run Dockerfile
 # Optimized for Google Cloud Run deployment
+# v2.4.1: Uses pre-built widget (run `npm run build:widget` before deploying)
 
 FROM node:20-slim
 
@@ -18,7 +19,9 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy application code
 COPY server.js ./
 COPY mcp-server ./mcp-server
-COPY web-component ./web-component
+
+# Copy pre-built widget (run `npm run build:widget` locally before deploying)
+COPY web-component/dist ./web-component/dist
 
 # Cloud Run sets PORT environment variable
 ENV PORT=8080

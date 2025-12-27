@@ -1,11 +1,14 @@
 {
   "name": "learningkids-ai",
-  "version": "2.3.1",
+  "version": "2.4.1",
   "description": "LearnKids AI - Educational platform for children",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "build:widget": "vite build",
+    "dev:widget": "vite",
+    "preview:widget": "vite preview"
   },
   "keywords": [
     "mcp",
@@ -19,9 +22,18 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "zod": "^3.22.4"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0"
   }
 }

@@ -36,6 +36,10 @@ test/
 *.test.js
 coverage/
 
-# Build artifacts
-dist/
+# Build artifacts (but NOT web-component/dist which contains the built widget)
+# dist/  # Commented out - we need web-component/dist
 build/
+
+# Widget source (not needed, only the build output)
+widget-src/
+vite.config.ts

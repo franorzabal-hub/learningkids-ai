@@ -4,8 +4,11 @@
  * Persistent HTTP server with SSE support for ChatGPT Apps SDK
  * Based on OpenAI's official pizzaz_server_node example
  *
+ * v2.4.0: Migrated widget to Vite build system for ChatGPT sandbox compatibility
+ *         (Babel standalone requires unsafe-eval which is blocked by CSP)
+ *
  * Compatible with: Google Cloud Run
- * @version 2.2.0
+ * @version 2.6.0
  */
 
 import { createServer } from 'node:http';
@@ -28,18 +31,12 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 8000;
 const SSE_PATH = '/mcp';
 const POST_PATH = '/mcp/messages';
-const WEB_COMPONENT_DIR = path.join(__dirname, 'web-component');
+const WEB_COMPONENT_DIR = path.join(__dirname, 'web-component', 'dist');
 
 // Widget configuration for OpenAI Apps SDK
+// Following official pattern from: https://github.com/openai/openai-apps-sdk-examples
 const WIDGET_URI = 'ui://widget/learningkids.html';
 const WIDGET_TITLE = 'LearnKids AI - Interactive Learning Platform';
-const WIDGET_DOMAIN = 'learningkids';
-
-// Widget CSP configuration - domains the widget can connect to
-const WIDGET_CSP = {
-  connect_domains: ['https://learningkids-ai-470541916594.us-central1.run.app'],
-  resource_domains: ['https://unpkg.com', 'https://*.oaistatic.com'],
-};
 
 // MIME types for static files
 const MIME_TYPES = {
@@ -106,6 +103,11 @@ function isValidCourseId(courseId) {
   return coursesData.courses.some(course => course.id === courseId);
 }
 
+// Base URL for external resources (Cloud Run URL)
+const BASE_URL = process.env.K_SERVICE
+  ? 'https://learningkids-ai-470541916594.us-central1.run.app'
+  : 'http://localhost:8000';
+
 // Widget HTML cache
 let widgetHtml = null;
 
@@ -113,21 +115,21 @@ async function loadWidgetHtml() {
   if (widgetHtml) return widgetHtml;
 
   try {
-    const indexPath = path.join(WEB_COMPONENT_DIR, 'index.html');
-    const cssPath = path.join(WEB_COMPONENT_DIR, 'styles.css');
+    // Following official OpenAI pattern from build-all.mts:
+    // HTML references external JS/CSS files served from the same origin
+    // https://github.com/openai/openai-apps-sdk-examples/blob/main/build-all.mts
+    widgetHtml = `<!doctype html>
+<html>
+<head>
+  <script type="module" src="${BASE_URL}/widget.js"></script>
+  <link rel="stylesheet" href="${BASE_URL}/widget.css">
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>`;
 
-    const [htmlContent, cssContent] = await Promise.all([
-      fs.readFile(indexPath, 'utf-8'),
-      fs.readFile(cssPath, 'utf-8').catch(() => ''),
-    ]);
-
-    // Inline the CSS into the HTML for widget self-containment
-    widgetHtml = htmlContent.replace(
-      '<link rel="stylesheet" href="styles.css">',
-      `<style>${cssContent}</style>`
-    );
-
-    console.log('[LearnKids] Widget HTML loaded and CSS inlined');
+    console.log('[LearnKids] Widget HTML loaded (official pattern), BASE_URL:', BASE_URL);
     return widgetHtml;
   } catch (error) {
     console.error('[LearnKids] Error loading widget HTML:', error);
@@ -140,16 +142,21 @@ async function loadWidgetHtml() {
 // ============================================================================
 
 async function serveStaticFile(res, filePath) {
+  console.log('[DEBUG] serveStaticFile called with:', filePath);
   try {
     // Security: prevent path traversal
     const normalizedPath = path.normalize(filePath);
+    console.log('[DEBUG] normalizedPath:', normalizedPath);
+    console.log('[DEBUG] startsWith check:', normalizedPath.startsWith(WEB_COMPONENT_DIR));
     if (!normalizedPath.startsWith(WEB_COMPONENT_DIR)) {
+      console.log('[DEBUG] Path traversal blocked');
       res.writeHead(403, { 'Content-Type': 'text/plain' });
       res.end('Forbidden');
       return;
     }
 
     const data = await fs.readFile(filePath);
+    console.log('[DEBUG] File read success, size:', data.length);
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
@@ -178,7 +185,7 @@ function createMcpServer() {
   const server = new Server(
     {
       name: 'learningkids-server',
-      version: '2.3.1',
+      version: '2.6.0',
     },
     {
       capabilities: {
@@ -193,20 +200,17 @@ function createMcpServer() {
   // ============================================================================
 
   // List available resources (the widget)
+  // Following official pattern from kitchen_sink_server_node
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
     return {
       resources: [
         {
           uri: WIDGET_URI,
-          name: 'learningkids-widget',
-          title: WIDGET_TITLE,
-          description: 'Interactive learning platform widget for kids education with courses, lessons, and exercises',
+          name: 'LearnKids Widget',
+          description: 'Interactive learning platform widget for kids education',
           mimeType: 'text/html+skybridge',
           _meta: {
-            'openai/widgetDomain': WIDGET_DOMAIN,
-            'openai/widgetCSP': WIDGET_CSP,
-            'openai/widgetPrefersBorder': true,
-            'openai/widgetDescription': 'Shows an interactive learning platform with courses, lessons, and coding exercises for kids.',
+            'openai/outputTemplate': WIDGET_URI,
           },
         },
       ],
@@ -214,6 +218,7 @@ function createMcpServer() {
   });
 
   // Read resource content (returns the widget HTML)
+  // Following official pattern from kitchen_sink_server_node
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
 
@@ -227,10 +232,7 @@ function createMcpServer() {
             mimeType: 'text/html+skybridge',
             text: html,
             _meta: {
-              'openai/widgetDomain': WIDGET_DOMAIN,
-              'openai/widgetCSP': WIDGET_CSP,
-              'openai/widgetPrefersBorder': true,
-              'openai/widgetDescription': 'Shows an interactive learning platform with courses, lessons, and coding exercises for kids.',
+              'openai/outputTemplate': WIDGET_URI,
             },
           },
         ],
@@ -261,12 +263,10 @@ function createMcpServer() {
           },
           securitySchemes: [{ type: 'noauth' }],
           _meta: {
-            'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
-            'openai/widgetAccessible': true,
-            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Loading courses...',
             'openai/toolInvocation/invoked': 'Courses loaded',
+            'openai/widgetAccessible': true,
           },
         },
         {
@@ -290,12 +290,10 @@ function createMcpServer() {
           },
           securitySchemes: [{ type: 'noauth' }],
           _meta: {
-            'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
-            'openai/widgetAccessible': true,
-            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Loading course details...',
             'openai/toolInvocation/invoked': 'Course details loaded',
+            'openai/widgetAccessible': true,
           },
         },
         {
@@ -325,12 +323,10 @@ function createMcpServer() {
           },
           securitySchemes: [{ type: 'noauth' }],
           _meta: {
-            'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
-            'openai/widgetAccessible': true,
-            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Loading lesson...',
             'openai/toolInvocation/invoked': 'Lesson ready',
+            'openai/widgetAccessible': true,
           },
         },
         {
@@ -365,12 +361,10 @@ function createMcpServer() {
           },
           securitySchemes: [{ type: 'noauth' }],
           _meta: {
-            'openai/visibility': 'public',
             'openai/outputTemplate': WIDGET_URI,
-            'openai/widgetAccessible': true,
-            'openai/resultCanProduceWidget': true,
             'openai/toolInvocation/invoking': 'Checking your work...',
             'openai/toolInvocation/invoked': 'Feedback ready',
+            'openai/widgetAccessible': true,
           },
         },
       ],
@@ -550,15 +544,66 @@ function createMcpServer() {
             };
           }
 
-          // Simple validation logic
-          const hasCode = studentCode && studentCode.trim().length > 0;
-          const isCorrect = hasCode && studentCode.trim().length > 5;
+          // Proper validation using lesson's regex pattern
+          const hasAttempt = typeof studentCode === 'string' && studentCode.trim().length > 0;
 
+          if (!hasAttempt) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: 'Please write some code to check.',
+                },
+              ],
+              structuredContent: {
+                validation: {
+                  correct: false,
+                  hasAttempt: false,
+                  message: 'No code provided. Please write your code and try again!',
+                },
+              },
+              _meta: {
+                'openai/outputTemplate': WIDGET_URI,
+                'openai/widgetAccessible': true,
+              },
+            };
+          }
+
+          // Get validation pattern from lesson
+          const validation = lesson.exercise?.validation;
+          let isCorrect = false;
+          let errorMessage = 'Your code needs some adjustments. Check the instructions and try again!';
+
+          if (validation && validation.type === 'regex' && validation.pattern) {
+            try {
+              // Use dotall flag (s) to handle multiline code
+              const regex = new RegExp(validation.pattern, 's');
+              isCorrect = regex.test(studentCode);
+
+              if (!isCorrect && validation.errorMessage) {
+                errorMessage = validation.errorMessage;
+              }
+            } catch (regexError) {
+              console.error('[LearnKids] Invalid regex pattern:', validation.pattern, regexError);
+              // Fallback: basic check if regex is invalid
+              isCorrect = studentCode.trim().length > 10;
+            }
+          } else {
+            // No validation pattern defined - fallback to basic check
+            console.warn('[LearnKids] No validation pattern for lesson:', lessonId);
+            isCorrect = studentCode.trim().length > 10;
+          }
+
+          // Build response
           const feedback = isCorrect
-            ? '✨ Great job! Your code looks good.'
-            : hasCode
-              ? 'Good start! Try adding more to your code.'
-              : 'Please write some code to check.';
+            ? '✨ Great job! Your code is correct!'
+            : errorMessage;
+
+          const reward = isCorrect && lesson.reward ? {
+            stars: lesson.reward.stars || 1,
+            badge: lesson.reward.badge,
+            message: lesson.reward.message,
+          } : null;
 
           return {
             content: [
@@ -570,8 +615,10 @@ function createMcpServer() {
             structuredContent: {
               validation: {
                 correct: isCorrect,
-                hasAttempt: hasCode,
-                codeLength: studentCode?.length || 0,
+                hasAttempt: true,
+                message: feedback,
+                reward: reward,
+                nextLesson: isCorrect ? lesson.nextLesson : null,
               },
             },
             _meta: {
@@ -729,6 +776,11 @@ const httpServer = createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
 
+  // Debug logging for static file requests
+  if (url.pathname.includes('widget') || url.pathname === '/') {
+    console.log(`[DEBUG] ${req.method} ${url.pathname}`);
+  }
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS' && (url.pathname === SSE_PATH || url.pathname === POST_PATH)) {
     res.writeHead(204, {
@@ -757,7 +809,7 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'healthy',
-      version: '2.3.1',
+      version: '2.6.0',
       server: process.env.K_SERVICE ? 'Cloud Run' : 'Local',
       transport: 'SSE',
       mcp: 'enabled',
@@ -772,7 +824,7 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       name: 'LearnKids AI',
-      version: '2.3.1',
+      version: '2.6.0',
       description: 'Interactive learning platform for kids',
       mcp: {
         endpoint: '/mcp',
@@ -802,9 +854,18 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
 
-  // Serve styles.css
-  if (req.method === 'GET' && url.pathname === '/styles.css') {
-    await serveStaticFile(res, path.join(WEB_COMPONENT_DIR, 'styles.css'));
+  // Serve widget.css (Vite build output)
+  if (req.method === 'GET' && url.pathname === '/widget.css') {
+    await serveStaticFile(res, path.join(WEB_COMPONENT_DIR, 'widget.css'));
+    return;
+  }
+
+  // Serve widget.js (Vite build output)
+  if (req.method === 'GET' && url.pathname === '/widget.js') {
+    console.log('[DEBUG] Matched /widget.js route');
+    const filePath = path.join(WEB_COMPONENT_DIR, 'widget.js');
+    console.log('[DEBUG] File path:', filePath);
+    await serveStaticFile(res, filePath);
     return;
   }
 
@@ -823,11 +884,20 @@ httpServer.on('clientError', (err, socket) => {
   socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`🎓 LearnKids AI MCP server listening on port ${PORT}`);
   console.log(`  Widget: http://localhost:${PORT}/`);
   console.log(`  SSE stream: GET http://localhost:${PORT}${SSE_PATH}`);
   console.log(`  Message endpoint: POST http://localhost:${PORT}${POST_PATH}`);
   console.log(`  Health check: GET http://localhost:${PORT}/health`);
   console.log(`  API info: GET http://localhost:${PORT}/api`);
+
+  // Debug: List widget files
+  console.log(`  WEB_COMPONENT_DIR: ${WEB_COMPONENT_DIR}`);
+  try {
+    const files = await fs.readdir(WEB_COMPONENT_DIR);
+    console.log(`  Widget files:`, files);
+  } catch (err) {
+    console.error(`  ERROR listing widget dir:`, err.message);
+  }
 });
