@@ -849,7 +849,7 @@ const httpServer = createServer(async (req, res) => {
         resources: [WIDGET_URI],
       },
       openai: {
-        widgetDomain: WIDGET_DOMAIN,
+        widgetDomain: BASE_URL,
         widgetAccessible: true,
         outputTemplate: WIDGET_URI,
       },
