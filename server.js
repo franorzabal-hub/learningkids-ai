@@ -115,21 +115,37 @@ async function loadWidgetHtml() {
   if (widgetHtml) return widgetHtml;
 
   try {
-    // Following official OpenAI pattern from build-all.mts:
-    // HTML references external JS/CSS files served from the same origin
-    // https://github.com/openai/openai-apps-sdk-examples/blob/main/build-all.mts
-    widgetHtml = `<!doctype html>
-<html>
+    const cssPath = path.join(WEB_COMPONENT_DIR, 'widget.css');
+    const jsPath = path.join(WEB_COMPONENT_DIR, 'widget.js');
+
+    const cssContent = await fs.readFile(cssPath, 'utf-8').catch(() => '');
+    let jsContent = await fs.readFile(jsPath, 'utf-8');
+
+    // CRITICAL: Escape patterns that would break the inline script
+    // 1. Replace </script with a safe unicode escape sequence
+    jsContent = jsContent.split('</script').join('<\\/script');
+    // 2. Replace <!-- to prevent HTML comment issues
+    jsContent = jsContent.split('<!--').join('<\\!--');
+
+    // Inline everything - ChatGPT sandbox blocks external script loading
+    widgetHtml = `<!DOCTYPE html>
+<html lang="en">
 <head>
-  <script type="module" src="${BASE_URL}/widget.js"></script>
-  <link rel="stylesheet" href="${BASE_URL}/widget.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+${cssContent}
+</style>
 </head>
 <body>
-  <div id="root"></div>
+<div id="root"></div>
+<script>
+${jsContent}
+</script>
 </body>
 </html>`;
 
-    console.log('[LearnKids] Widget HTML loaded (official pattern), BASE_URL:', BASE_URL);
+    console.log('[LearnKids] Widget HTML loaded with inline JS, size:', widgetHtml.length);
     return widgetHtml;
   } catch (error) {
     console.error('[LearnKids] Error loading widget HTML:', error);
