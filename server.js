@@ -48,8 +48,10 @@ const DEBUG = process.env.DEBUG === 'true';
 
 // Widget configuration for OpenAI Apps SDK
 // Following official pattern from: https://github.com/openai/openai-apps-sdk-examples
-const WIDGET_URI = 'ui://widget/learningkids.html';
+const WIDGET_URI = 'ui://widget/learningkids-v2.html';
 const WIDGET_TITLE = 'LearnKids AI - Interactive Learning Platform';
+const WIDGET_DOMAIN = process.env.WIDGET_DOMAIN || 'learningkids-ai';
+const WIDGET_DESCRIPTION = 'Interactive coding lessons and exercises for kids.';
 
 // MIME types for static files
 const MIME_TYPES = {
@@ -107,6 +109,42 @@ function getBaseUrl(url, req) {
     : forwardedHost || req.headers.host || url.host;
 
   return `${protocol}://${host}`;
+}
+
+function getBaseUrlFromHeaders(headers = {}) {
+  if (process.env.BASE_URL) {
+    return process.env.BASE_URL;
+  }
+
+  const forwardedProto = headers['x-forwarded-proto'];
+  const forwardedHost = headers['x-forwarded-host'];
+  const protocol = Array.isArray(forwardedProto)
+    ? forwardedProto[0]
+    : forwardedProto || 'https';
+  const host = Array.isArray(forwardedHost)
+    ? forwardedHost[0]
+    : forwardedHost || headers.host;
+
+  if (!host) {
+    return 'http://localhost:8000';
+  }
+
+  return `${protocol}://${host}`;
+}
+
+function buildWidgetMeta(requestInfo) {
+  const baseUrl = getBaseUrlFromHeaders(requestInfo?.headers ?? {});
+
+  return {
+    'openai/outputTemplate': WIDGET_URI,
+    'openai/widgetAccessible': true,
+    'openai/widgetDomain': WIDGET_DOMAIN,
+    'openai/widgetDescription': WIDGET_DESCRIPTION,
+    'openai/widgetCSP': {
+      connect_domains: [baseUrl],
+      resource_domains: [baseUrl],
+    },
+  };
 }
 
 // Widget HTML cache
@@ -224,7 +262,8 @@ function createMcpServer() {
 
   // List available resources (the widget)
   // Following official pattern from kitchen_sink_server_node
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+  server.setRequestHandler(ListResourcesRequestSchema, async (_request, extra) => {
+    const widgetMeta = buildWidgetMeta(extra?.requestInfo);
     return {
       resources: [
         {
@@ -232,16 +271,14 @@ function createMcpServer() {
           name: 'LearnKids Widget',
           description: 'Interactive learning platform widget for kids education',
           mimeType: 'text/html+skybridge',
-          _meta: {
-            'openai/outputTemplate': WIDGET_URI,
-            'openai/widgetAccessible': true,
-          },
+          _meta: widgetMeta,
         },
       ],
     };
   });
 
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, async (_request, extra) => {
+    const widgetMeta = buildWidgetMeta(extra?.requestInfo);
     return {
       resourceTemplates: [
         {
@@ -249,10 +286,7 @@ function createMcpServer() {
           name: 'LearnKids Widget',
           description: 'Interactive learning platform widget for kids education',
           mimeType: 'text/html+skybridge',
-          _meta: {
-            'openai/outputTemplate': WIDGET_URI,
-            'openai/widgetAccessible': true,
-          },
+          _meta: widgetMeta,
         },
       ],
     };
@@ -260,11 +294,12 @@ function createMcpServer() {
 
   // Read resource content (returns the widget HTML)
   // Following official pattern from kitchen_sink_server_node
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  server.setRequestHandler(ReadResourceRequestSchema, async (request, extra) => {
     const { uri } = request.params;
 
     if (uri === WIDGET_URI) {
       const html = await loadWidgetHtml();
+      const widgetMeta = buildWidgetMeta(extra?.requestInfo);
 
       return {
         contents: [
@@ -272,10 +307,7 @@ function createMcpServer() {
             uri: WIDGET_URI,
             mimeType: 'text/html+skybridge',
             text: html,
-            _meta: {
-              'openai/outputTemplate': WIDGET_URI,
-              'openai/widgetAccessible': true,
-            },
+            _meta: widgetMeta,
           },
         ],
       };
@@ -311,6 +343,7 @@ function createMcpServer() {
             'openai/toolInvocation/invoking': 'Loading courses...',
             'openai/toolInvocation/invoked': 'Courses loaded',
             'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
           },
         },
         {
@@ -340,6 +373,7 @@ function createMcpServer() {
             'openai/toolInvocation/invoking': 'Loading course details...',
             'openai/toolInvocation/invoked': 'Course details loaded',
             'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
           },
         },
         {
@@ -369,6 +403,7 @@ function createMcpServer() {
             'openai/toolInvocation/invoking': 'Loading course details...',
             'openai/toolInvocation/invoked': 'Course details loaded',
             'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
           },
         },
         {
@@ -404,6 +439,7 @@ function createMcpServer() {
             'openai/toolInvocation/invoking': 'Loading lesson...',
             'openai/toolInvocation/invoked': 'Lesson ready',
             'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
           },
         },
         {
@@ -444,6 +480,7 @@ function createMcpServer() {
             'openai/toolInvocation/invoking': 'Checking your work...',
             'openai/toolInvocation/invoked': 'Feedback ready',
             'openai/widgetAccessible': true,
+            'openai/resultCanProduceWidget': true,
           },
         },
       ],
@@ -484,6 +521,7 @@ function createMcpServer() {
             _meta: {
               'openai/outputTemplate': WIDGET_URI,
               'openai/widgetAccessible': true,
+              'openai/resultCanProduceWidget': true,
             },
           };
         }
@@ -539,6 +577,7 @@ function createMcpServer() {
             _meta: {
               'openai/outputTemplate': WIDGET_URI,
               'openai/widgetAccessible': true,
+              'openai/resultCanProduceWidget': true,
             },
           };
         }
@@ -598,6 +637,7 @@ function createMcpServer() {
             _meta: {
               'openai/outputTemplate': WIDGET_URI,
               'openai/widgetAccessible': true,
+              'openai/resultCanProduceWidget': true,
             },
           };
         }
@@ -663,6 +703,7 @@ function createMcpServer() {
             _meta: {
               'openai/outputTemplate': WIDGET_URI,
               'openai/widgetAccessible': true,
+              'openai/resultCanProduceWidget': true,
             },
           };
         }
