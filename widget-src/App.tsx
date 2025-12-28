@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useWidgetState, useWidgetProps, useOpenAiGlobal } from './hooks';
 import './styles.css';
 
@@ -373,6 +373,16 @@ export default function App() {
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Track component mount state to prevent state updates after unmount
+  // Fix for race condition in setTimeout - Claude (Opus 4.5) - 2025-12-27
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Initialize: Check if we have data from tool output or need to fetch
   useEffect(() => {
     async function initialize() {
@@ -459,8 +469,12 @@ export default function App() {
     setWidgetState(newProgress);
 
     // Load next lesson if available
+    // Fixed: Check isMountedRef before state update to prevent race condition
+    // Claude (Opus 4.5) - 2025-12-27
     if (result.nextLesson && currentLesson && !currentLesson.isFinalLesson && currentCourseId) {
       setTimeout(async () => {
+        if (!isMountedRef.current) return; // Prevent state update if unmounted
+
         try {
           const nextLessonNumber = parseInt(result.nextLesson?.replace('lesson-', '') || '0');
           const data = await callTool('start-lesson', {
@@ -468,7 +482,7 @@ export default function App() {
             lessonNumber: nextLessonNumber,
           });
 
-          if (data?.lesson) {
+          if (data?.lesson && isMountedRef.current) {
             setCurrentLesson(data.lesson);
           }
         } catch (err) {

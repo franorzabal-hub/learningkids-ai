@@ -26,6 +26,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { APP_VERSION } from './lib/config.js';
+import { createDataLoader } from './lib/data.js';
 import { buildStudentValidation } from './lib/lessonValidation.js';
 import { createSessionStore } from './lib/sessionStore.js';
 import { isValidCourseId } from './lib/validation.js';
@@ -37,6 +38,10 @@ const PORT = process.env.PORT || 8000;
 const SSE_PATH = '/mcp';
 const POST_PATH = '/mcp/messages';
 const WEB_COMPONENT_DIR = path.join(__dirname, 'web-component', 'dist');
+
+// Debug mode: set DEBUG=true to enable verbose logging
+// Claude (Opus 4.5) - 2025-12-27
+const DEBUG = process.env.DEBUG === 'true';
 
 // Widget configuration for OpenAI Apps SDK
 // Following official pattern from: https://github.com/openai/openai-apps-sdk-examples
@@ -62,42 +67,26 @@ const sessionStore = createSessionStore();
 
 // ============================================================================
 // DATA LOADING
+// Refactored to use createDataLoader from lib/data.js - Claude (Opus 4.5) - 2025-12-27
 // ============================================================================
 
-let coursesData = null;
-let lessonsCache = new Map();
+const DATA_DIR = path.join(__dirname, 'mcp-server', 'data');
+const dataLoader = createDataLoader(DATA_DIR);
 
+// Wrapper functions to maintain existing API and add logging
 async function loadCourses() {
-  if (coursesData) return coursesData;
-
-  try {
-    const coursesPath = path.join(__dirname, 'mcp-server', 'data', 'courses.json');
-    const data = await fs.readFile(coursesPath, 'utf-8');
-    coursesData = JSON.parse(data);
+  const wasCached = !!dataLoader.getCoursesCached();
+  const coursesData = await dataLoader.loadCourses();
+  if (!wasCached) {
     console.log('[LearnKids] Loaded', coursesData.courses.length, 'courses');
-    return coursesData;
-  } catch (error) {
-    console.error('[LearnKids] Error loading courses:', error);
-    throw new Error('Failed to load courses data');
   }
+  return coursesData;
 }
 
 async function loadLessons(courseId) {
-  if (lessonsCache.has(courseId)) {
-    return lessonsCache.get(courseId);
-  }
-
-  try {
-    const lessonsPath = path.join(__dirname, 'mcp-server', 'data', 'lessons', `${courseId}.json`);
-    const data = await fs.readFile(lessonsPath, 'utf-8');
-    const lessons = JSON.parse(data);
-    lessonsCache.set(courseId, lessons);
-    console.log(`[LearnKids] Loaded ${lessons.lessons.length} lessons for: ${courseId}`);
-    return lessons;
-  } catch (error) {
-    console.error(`[LearnKids] Error loading lessons for ${courseId}:`, error);
-    throw new Error(`Failed to load lessons for course: ${courseId}`);
-  }
+  const lessonsData = await dataLoader.loadLessons(courseId);
+  // Note: dataLoader already handles caching, log is kept for debugging
+  return lessonsData;
 }
 
 function getBaseUrl(url, req) {
@@ -127,7 +116,11 @@ async function loadWidgetHtml() {
     const cssPath = path.join(WEB_COMPONENT_DIR, 'widget.css');
     const jsPath = path.join(WEB_COMPONENT_DIR, 'widget.js');
 
-    const cssContent = await fs.readFile(cssPath, 'utf-8').catch(() => '');
+    // Added logging for missing files - Claude (Opus 4.5) - 2025-12-27
+    const cssContent = await fs.readFile(cssPath, 'utf-8').catch((err) => {
+      console.warn('[LearnKids] CSS file not found, continuing without styles:', err.message);
+      return '';
+    });
     let jsContent = await fs.readFile(jsPath, 'utf-8');
 
     // CRITICAL: Escape patterns that would break the inline script
@@ -167,21 +160,23 @@ ${jsContent}
 // ============================================================================
 
 async function serveStaticFile(res, filePath) {
-  console.log('[DEBUG] serveStaticFile called with:', filePath);
+  if (DEBUG) console.log('[DEBUG] serveStaticFile called with:', filePath);
   try {
     // Security: prevent path traversal
     const normalizedPath = path.normalize(filePath);
-    console.log('[DEBUG] normalizedPath:', normalizedPath);
-    console.log('[DEBUG] startsWith check:', normalizedPath.startsWith(WEB_COMPONENT_DIR));
+    if (DEBUG) {
+      console.log('[DEBUG] normalizedPath:', normalizedPath);
+      console.log('[DEBUG] startsWith check:', normalizedPath.startsWith(WEB_COMPONENT_DIR));
+    }
     if (!normalizedPath.startsWith(WEB_COMPONENT_DIR)) {
-      console.log('[DEBUG] Path traversal blocked');
+      if (DEBUG) console.log('[DEBUG] Path traversal blocked');
       res.writeHead(403, { 'Content-Type': 'text/plain' });
       res.end('Forbidden');
       return;
     }
 
     const data = await fs.readFile(filePath);
-    console.log('[DEBUG] File read success, size:', data.length);
+    if (DEBUG) console.log('[DEBUG] File read success, size:', data.length);
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
@@ -403,7 +398,7 @@ function createMcpServer() {
     try {
       switch (name) {
         case 'get-courses': {
-          await loadCourses();
+          const coursesData = await loadCourses();
 
           const coursesList = coursesData.courses.map(course => ({
             id: course.id,
@@ -435,7 +430,7 @@ function createMcpServer() {
 
         case 'view-course-details': {
           const { courseId } = args;
-          await loadCourses();
+          const coursesData = await loadCourses();
 
           if (!isValidCourseId(courseId, coursesData)) {
             return {
@@ -481,7 +476,7 @@ function createMcpServer() {
 
         case 'start-lesson': {
           const { courseId, lessonNumber } = args;
-          await loadCourses();
+          const coursesData = await loadCourses();
 
           if (!isValidCourseId(courseId, coursesData)) {
             return {
@@ -539,7 +534,7 @@ function createMcpServer() {
 
         case 'check-student-work': {
           const { courseId, lessonNumber, studentCode } = args;
-          await loadCourses();
+          const coursesData = await loadCourses();
 
           if (!isValidCourseId(courseId, coursesData)) {
             return {
@@ -657,21 +652,24 @@ async function handleSseRequest(req, res, url) {
 
     console.log(`[LearnKids] Stored session with temp key: ${tempKey}`);
 
-    // Clean up session when connection closes
-    req.on('close', () => {
-      const key = session.key;
-      if (sessionStore.removeSession(session)) {
-        console.log(`[LearnKids] SSE connection closed for ${key}`);
-      }
-    });
-
-    // Also clean up after 1 hour of inactivity
-    setTimeout(() => {
+    // Set up cleanup timeout (1 hour of inactivity)
+    // Fixed: Cancel timeout when connection closes to prevent memory leak
+    // Claude (Opus 4.5) - 2025-12-27
+    const cleanupTimeoutId = setTimeout(() => {
       const key = session.key;
       if (sessionStore.removeSession(session)) {
         console.log(`[LearnKids] Cleaning up inactive session: ${key}`);
       }
     }, 3600000); // 1 hour
+
+    // Clean up session when connection closes
+    req.on('close', () => {
+      clearTimeout(cleanupTimeoutId); // Cancel pending timeout to prevent memory leak
+      const key = session.key;
+      if (sessionStore.removeSession(session)) {
+        console.log(`[LearnKids] SSE connection closed for ${key}`);
+      }
+    });
   } catch (error) {
     console.error('[LearnKids] SSE connection error:', error);
     if (!res.headersSent) {
@@ -755,7 +753,7 @@ const httpServer = createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
 
   // Debug logging for static file requests
-  if (url.pathname.includes('widget') || url.pathname === '/') {
+  if (DEBUG && (url.pathname.includes('widget') || url.pathname === '/')) {
     console.log(`[DEBUG] ${req.method} ${url.pathname}`);
   }
 
@@ -841,9 +839,9 @@ const httpServer = createServer(async (req, res) => {
 
   // Serve widget.js (Vite build output)
   if (req.method === 'GET' && url.pathname === '/widget.js') {
-    console.log('[DEBUG] Matched /widget.js route');
+    if (DEBUG) console.log('[DEBUG] Matched /widget.js route');
     const filePath = path.join(WEB_COMPONENT_DIR, 'widget.js');
-    console.log('[DEBUG] File path:', filePath);
+    if (DEBUG) console.log('[DEBUG] File path:', filePath);
     await serveStaticFile(res, filePath);
     return;
   }
@@ -871,12 +869,19 @@ httpServer.listen(PORT, async () => {
   console.log(`  Health check: GET http://localhost:${PORT}/health`);
   console.log(`  API info: GET http://localhost:${PORT}/api`);
 
+  // Start periodic session cleanup (every 15 minutes, remove sessions older than 1 hour)
+  // Claude (Opus 4.5) - 2025-12-27
+  sessionStore.startPeriodicCleanup();
+  console.log(`  Session cleanup: enabled (every 15 min)`);
+
   // Debug: List widget files
-  console.log(`  WEB_COMPONENT_DIR: ${WEB_COMPONENT_DIR}`);
-  try {
-    const files = await fs.readdir(WEB_COMPONENT_DIR);
-    console.log(`  Widget files:`, files);
-  } catch (err) {
-    console.error(`  ERROR listing widget dir:`, err.message);
+  if (DEBUG) {
+    console.log(`  WEB_COMPONENT_DIR: ${WEB_COMPONENT_DIR}`);
+    try {
+      const files = await fs.readdir(WEB_COMPONENT_DIR);
+      console.log(`  Widget files:`, files);
+    } catch (err) {
+      console.error(`  ERROR listing widget dir:`, err.message);
+    }
   }
 });
