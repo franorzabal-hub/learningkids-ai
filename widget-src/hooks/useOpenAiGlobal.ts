@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-// Type for window.openai globals
+// Type for window.openai globals (subset needed by this widget)
 declare global {
   interface Window {
     openai?: {
@@ -10,17 +10,19 @@ declare global {
       maxHeight?: number;
       toolOutput?: unknown;
       toolInput?: unknown;
+      toolResponseMetadata?: unknown;
       widgetState?: unknown;
-      setWidgetState?: (state: unknown) => void;
-      callTool?: (params: { name: string; parameters?: Record<string, unknown> }) => Promise<{
-        content: Array<{ type: string; text: string }>;
+      setWidgetState?: (state: unknown) => void | Promise<void>;
+      callTool?: (name: string, parameters?: Record<string, unknown>) => Promise<{
+        content?: Array<{ type: string; text: string }>;
+        structuredContent?: unknown;
       }>;
       requestClose?: () => void;
     };
   }
 }
 
-const SET_GLOBALS_EVENT_TYPE = 'openai:set-globals';
+const SET_GLOBALS_EVENT_TYPES = ['openai:set_globals', 'openai:set-globals'];
 
 type OpenAiGlobalKey = keyof NonNullable<Window['openai']>;
 
@@ -34,14 +36,28 @@ export function useOpenAiGlobal<K extends OpenAiGlobalKey>(
       }
 
       const handler = (event: Event) => {
-        const customEvent = event as CustomEvent<{ key: string }>;
-        if (customEvent.detail?.key === key) {
+        const customEvent = event as CustomEvent<{ key?: string; globals?: Record<string, unknown> }>;
+        const detail = customEvent.detail;
+        if (!detail) {
+          return;
+        }
+        if (detail.key && detail.key === key) {
+          onChange();
+          return;
+        }
+        if (detail.globals && Object.prototype.hasOwnProperty.call(detail.globals, key)) {
           onChange();
         }
       };
 
-      window.addEventListener(SET_GLOBALS_EVENT_TYPE, handler);
-      return () => window.removeEventListener(SET_GLOBALS_EVENT_TYPE, handler);
+      for (const eventType of SET_GLOBALS_EVENT_TYPES) {
+        window.addEventListener(eventType, handler, { passive: true });
+      }
+      return () => {
+        for (const eventType of SET_GLOBALS_EVENT_TYPES) {
+          window.removeEventListener(eventType, handler);
+        }
+      };
     },
     () => window.openai?.[key] ?? null,
     () => null

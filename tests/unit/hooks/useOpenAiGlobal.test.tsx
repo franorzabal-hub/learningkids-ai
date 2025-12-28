@@ -73,7 +73,7 @@ describe('useOpenAiGlobal', () => {
   });
 
   describe('event handling', () => {
-    it('updates when openai:set-globals event is dispatched', async () => {
+    it('updates when openai:set_globals event is dispatched', async () => {
       (window as Window & { openai?: Record<string, unknown> }).openai = {
         theme: 'light',
       };
@@ -82,6 +82,28 @@ describe('useOpenAiGlobal', () => {
       expect(result.current).toBe('light');
 
       // Update the value and dispatch event
+      act(() => {
+        (window as Window & { openai?: Record<string, unknown> }).openai = {
+          theme: 'dark',
+        };
+        window.dispatchEvent(
+          new CustomEvent('openai:set_globals', { detail: { globals: { theme: 'dark' } } })
+        );
+      });
+
+      await waitFor(() => {
+        expect(result.current).toBe('dark');
+      });
+    });
+
+    it('updates when legacy openai:set-globals event is dispatched', async () => {
+      (window as Window & { openai?: Record<string, unknown> }).openai = {
+        theme: 'light',
+      };
+
+      const { result } = renderHook(() => useOpenAiGlobal('theme'));
+      expect(result.current).toBe('light');
+
       act(() => {
         (window as Window & { openai?: Record<string, unknown> }).openai = {
           theme: 'dark',
@@ -108,7 +130,7 @@ describe('useOpenAiGlobal', () => {
       // Dispatch event for different key
       act(() => {
         window.dispatchEvent(
-          new CustomEvent('openai:set-globals', { detail: { key: 'locale' } })
+          new CustomEvent('openai:set_globals', { detail: { globals: { locale: 'en-US' } } })
         );
       });
 

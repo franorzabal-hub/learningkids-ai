@@ -71,21 +71,25 @@ interface ToolOutputData {
 }
 
 // Utility function to call MCP tools
-async function callTool(name: string, parameters: Record<string, unknown> = {}) {
+async function callTool(
+  name: string,
+  parameters: Record<string, unknown> = {},
+  callToolApi: Window['openai'] extends { callTool?: infer T } ? T : undefined = window.openai?.callTool
+) {
   console.log('[LearnKids] callTool called:', name, 'window.openai:', !!window.openai);
 
   if (!window.openai) {
     throw new Error('OpenAI runtime not available - widget must be loaded via ChatGPT');
   }
 
-  if (!window.openai.callTool) {
+  if (!callToolApi) {
     throw new Error('callTool not available - check ChatGPT connection');
   }
 
   console.log('[LearnKids] Calling tool:', name, parameters);
 
   try {
-    const response = await window.openai.callTool({ name, parameters });
+    const response = await callToolApi(name, parameters);
     console.log('[LearnKids] Tool response:', response);
 
     // The server returns data in structuredContent, not in content[0].text
@@ -367,6 +371,7 @@ function LessonViewer({
 // Main App Component
 export default function App() {
   const theme = useOpenAiGlobal('theme') || 'light';
+  const callToolApi = useOpenAiGlobal('callTool');
   const defaultToolOutput = useMemo<ToolOutputData>(() => ({}), []);
   const toolOutput = useWidgetProps<ToolOutputData>(defaultToolOutput);
 
@@ -425,9 +430,14 @@ export default function App() {
           return;
         }
 
+        if (!callToolApi) {
+          console.log('[LearnKids] callTool not ready yet, waiting for host...');
+          return;
+        }
+
         // No tool output - try to fetch courses
         console.log('[LearnKids] No toolOutput, attempting to call get-courses...');
-        const data = await callTool('get-courses');
+        const data = await callTool('get-courses', {}, callToolApi);
         console.log('[LearnKids] get-courses response:', data);
 
         if (data?.courses) {
@@ -446,7 +456,7 @@ export default function App() {
     }
 
     initialize();
-  }, [toolOutput]);
+  }, [toolOutput, callToolApi, widgetState.currentCourseId]);
 
   // Handle course selection
   const handleSelectCourse = async (courseId: string) => {
@@ -456,7 +466,7 @@ export default function App() {
       const data = await callTool('start-lesson', {
         courseId,
         lessonNumber: 1,
-      });
+      }, callToolApi ?? undefined);
 
       if (data?.lesson) {
         setCurrentCourseId(courseId);
@@ -498,7 +508,7 @@ export default function App() {
           const data = await callTool('start-lesson', {
             courseId: currentCourseId,
             lessonNumber: nextLessonNumber,
-          });
+          }, callToolApi ?? undefined);
 
           if (data?.lesson && isMountedRef.current) {
             setCurrentLesson(data.lesson);
