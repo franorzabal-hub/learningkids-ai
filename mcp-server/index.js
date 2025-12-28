@@ -130,6 +130,21 @@ server.setRequestHandler('tools/list', async () => {
         },
       },
       {
+        name: 'get-course-details',
+        description: 'Alias for view-course-details. Gets detailed information about a specific course including all lesson titles and objectives.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            courseId: {
+              type: 'string',
+              description: 'The unique identifier of the course (e.g., "python-kids")',
+            },
+          },
+          required: ['courseId'],
+          additionalProperties: false,
+        },
+      },
+      {
         name: 'start-lesson',
         description: 'Retrieves complete content for a specific lesson including explanations, examples, and exercises. Use this when the student wants to start or continue a lesson.',
         inputSchema: {
@@ -226,7 +241,7 @@ server.setRequestHandler('tools/call', async (request) => {
     // ========================================================================
     // Tool: view-course-details
     // ========================================================================
-    if (name === 'view-course-details') {
+    if (name === 'view-course-details' || name === 'get-course-details') {
       console.error('[LearnKids] Tool called: view-course-details', args);
 
       const { courseId } = args;
@@ -245,6 +260,13 @@ server.setRequestHandler('tools/call', async (request) => {
       }
 
       const course = coursesData.courses.find(c => c.id === courseId);
+      const lessonsData = await loadLessons(courseId);
+      const lessonsSummary = lessonsData.lessons.map(lesson => ({
+        id: lesson.id,
+        number: lesson.order,
+        title: lesson.title,
+        duration: lesson.duration,
+      }));
 
       return {
         content: [
@@ -264,7 +286,8 @@ server.setRequestHandler('tools/call', async (request) => {
             estimatedDuration: course.estimatedDuration,
             prerequisites: course.prerequisites || [],
             learningObjectives: course.learningObjectives || [],
-            lessons: course.lessons || [],
+            lessonIds: course.lessonIds || lessonsSummary.map(lesson => lesson.id),
+            lessons: lessonsSummary,
           },
         },
       };

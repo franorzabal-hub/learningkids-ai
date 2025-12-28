@@ -319,6 +319,33 @@ function createMcpServer() {
           },
         },
         {
+          name: 'get-course-details',
+          title: 'View Course Details',
+          description: 'Alias for view-course-details. Returns lesson plan and learning objectives for a specific course.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              courseId: {
+                type: 'string',
+                description: 'Course ID from the course list (e.g., "python-kids")',
+                pattern: '^[a-z0-9-]+$',
+              },
+            },
+            required: ['courseId'],
+            additionalProperties: false,
+          },
+          annotations: {
+            readOnlyHint: true,
+          },
+          securitySchemes: [{ type: 'noauth' }],
+          _meta: {
+            'openai/outputTemplate': WIDGET_URI,
+            'openai/toolInvocation/invoking': 'Loading course details...',
+            'openai/toolInvocation/invoked': 'Course details loaded',
+            'openai/widgetAccessible': true,
+          },
+        },
+        {
           name: 'start-lesson',
           title: 'Start Learning Lesson',
           description: 'Loads educational content for a specific lesson. Safe, read-only operation that provides learning materials to students.',
@@ -431,7 +458,8 @@ function createMcpServer() {
           };
         }
 
-        case 'view-course-details': {
+        case 'view-course-details':
+        case 'get-course-details': {
           const { courseId } = args;
           const coursesData = await loadCourses();
 
@@ -448,6 +476,13 @@ function createMcpServer() {
           }
 
           const course = coursesData.courses.find(c => c.id === courseId);
+          const lessonsData = await loadLessons(courseId);
+          const lessonsSummary = lessonsData.lessons.map(lesson => ({
+            id: lesson.id,
+            number: lesson.order,
+            title: lesson.title,
+            duration: lesson.duration,
+          }));
 
           return {
             content: [
@@ -467,7 +502,8 @@ function createMcpServer() {
                 estimatedDuration: course.estimatedDuration,
                 prerequisites: course.prerequisites || [],
                 learningObjectives: course.learningObjectives || [],
-                lessons: course.lessons || [],
+                lessonIds: course.lessonIds || lessonsSummary.map(lesson => lesson.id),
+                lessons: lessonsSummary,
               },
             },
             _meta: {
