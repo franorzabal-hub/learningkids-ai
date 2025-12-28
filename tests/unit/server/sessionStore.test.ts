@@ -31,6 +31,30 @@ describe('createSessionStore', () => {
     expect(store.sessions.has('session-abc')).toBe(true);
   });
 
+  it('promotes the most recent temp session', () => {
+    vi.useFakeTimers();
+    const store = createSessionStore();
+
+    vi.setSystemTime(new Date('2025-01-01T00:00:00Z'));
+    const older = store.addSession('temp-1', { temp: true });
+
+    vi.setSystemTime(new Date('2025-01-01T00:00:02Z'));
+    const newer = store.addSession('temp-2', { temp: true });
+
+    const result = store.promoteSession('session-new');
+
+    expect(result.promoted).toBe(true);
+    expect(result.previousKey).toBe('temp-2');
+    expect(result.session).toBe(newer);
+    expect(store.sessions.has('temp-1')).toBe(true);
+    expect(store.sessions.has('temp-2')).toBe(false);
+    expect(store.sessions.has('session-new')).toBe(true);
+    expect(older.key).toBe('temp-1');
+    expect(newer.key).toBe('session-new');
+
+    vi.useRealTimers();
+  });
+
   it('returns null when no sessions are available', () => {
     const store = createSessionStore();
 

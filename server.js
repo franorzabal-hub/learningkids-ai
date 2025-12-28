@@ -682,13 +682,15 @@ async function handleSseRequest(req, res, url) {
     // Note: ChatGPT generates its own sessionId and includes it in POST requests
     // We can't know it ahead of time, so we store this session globally and match later
     // Store with a temporary key that we'll update when first POST arrives
-    const tempKey = `temp-${randomUUID()}`;
+    const transportSessionId = transport.sessionId;
+    const tempKey = transportSessionId || `temp-${randomUUID()}`;
     const session = sessionStore.addSession(tempKey, {
       server,
       transport,
       createdAt: Date.now(),
       lastSeen: Date.now(),
       temp: true,
+      transportSessionId,
     });
 
     console.log(`[LearnKids] Stored session with temp key: ${tempKey}`);
