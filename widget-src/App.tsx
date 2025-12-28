@@ -73,6 +73,15 @@ interface ToolOutputData {
 // Utility function to call MCP tools
 type CallToolApi = Window['openai'] extends { callTool?: infer T } ? T : undefined;
 
+function shouldRetryCallTool(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return message.includes('422')
+    || normalized.includes('unprocessable')
+    || normalized.includes('call_mcp')
+    || normalized.includes('something went wrong');
+}
+
 async function invokeCallTool(
   callToolApi: CallToolApi,
   name: string,
@@ -82,23 +91,33 @@ async function invokeCallTool(
     throw new Error('callTool not available - check ChatGPT connection');
   }
 
-  const payload = { name, parameters, arguments: parameters };
+  const payloadArgs = { name, arguments: parameters };
+  const payloadParams = { name, parameters };
   const callToolFn = callToolApi as (...args: unknown[]) => Promise<unknown>;
   const prefersObject = typeof callToolApi === 'function' && callToolApi.length < 2;
 
   try {
-    return prefersObject
-      ? await callToolFn(payload)
-      : await callToolFn(name, parameters);
+    if (prefersObject) {
+      try {
+        return await callToolFn(payloadArgs);
+      } catch (error) {
+        if (shouldRetryCallTool(error)) {
+          return await callToolFn(payloadParams);
+        }
+        throw error;
+      }
+    }
+
+    return await callToolFn(name, parameters);
   } catch (error) {
-    if (!prefersObject) {
-      const message = error instanceof Error ? error.message : String(error);
-      const shouldRetry = message.includes('422')
-        || message.toLowerCase().includes('unprocessable')
-        || message.toLowerCase().includes('call_mcp')
-        || message.toLowerCase().includes('something went wrong');
-      if (shouldRetry) {
-        return await callToolFn(payload);
+    if (!prefersObject && shouldRetryCallTool(error)) {
+      try {
+        return await callToolFn(payloadArgs);
+      } catch (secondaryError) {
+        if (shouldRetryCallTool(secondaryError)) {
+          return await callToolFn(payloadParams);
+        }
+        throw secondaryError;
       }
     }
     throw error;
@@ -422,6 +441,7 @@ export default function App() {
   // Track component mount state to prevent state updates after unmount
   // Fix for race condition in setTimeout - Claude (Opus 4.5) - 2025-12-27
   const isMountedRef = useRef(true);
+  const hasAttemptedAutoLoadRef = useRef(false);
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -464,6 +484,11 @@ export default function App() {
           console.log('[LearnKids] callTool not ready yet, waiting for host...');
           return;
         }
+
+        if (hasAttemptedAutoLoadRef.current) {
+          return;
+        }
+        hasAttemptedAutoLoadRef.current = true;
 
         // No tool output - try to fetch courses
         console.log('[LearnKids] No toolOutput, attempting to call get-courses...');
