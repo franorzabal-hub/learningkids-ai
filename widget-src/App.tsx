@@ -71,10 +71,44 @@ interface ToolOutputData {
 }
 
 // Utility function to call MCP tools
+type CallToolApi = Window['openai'] extends { callTool?: infer T } ? T : undefined;
+
+async function invokeCallTool(
+  callToolApi: CallToolApi,
+  name: string,
+  parameters: Record<string, unknown>
+) {
+  if (!callToolApi) {
+    throw new Error('callTool not available - check ChatGPT connection');
+  }
+
+  const payload = { name, parameters, arguments: parameters };
+  const callToolFn = callToolApi as (...args: unknown[]) => Promise<unknown>;
+  const prefersObject = typeof callToolApi === 'function' && callToolApi.length < 2;
+
+  try {
+    return prefersObject
+      ? await callToolFn(payload)
+      : await callToolFn(name, parameters);
+  } catch (error) {
+    if (!prefersObject) {
+      const message = error instanceof Error ? error.message : String(error);
+      const shouldRetry = message.includes('422')
+        || message.toLowerCase().includes('unprocessable')
+        || message.toLowerCase().includes('call_mcp')
+        || message.toLowerCase().includes('something went wrong');
+      if (shouldRetry) {
+        return await callToolFn(payload);
+      }
+    }
+    throw error;
+  }
+}
+
 async function callTool(
   name: string,
   parameters: Record<string, unknown> = {},
-  callToolApi: Window['openai'] extends { callTool?: infer T } ? T : undefined = window.openai?.callTool
+  callToolApi: CallToolApi = window.openai?.callTool
 ) {
   console.log('[LearnKids] callTool called:', name, 'window.openai:', !!window.openai);
 
@@ -82,14 +116,10 @@ async function callTool(
     throw new Error('OpenAI runtime not available - widget must be loaded via ChatGPT');
   }
 
-  if (!callToolApi) {
-    throw new Error('callTool not available - check ChatGPT connection');
-  }
-
   console.log('[LearnKids] Calling tool:', name, parameters);
 
   try {
-    const response = await callToolApi(name, parameters);
+    const response = await invokeCallTool(callToolApi, name, parameters);
     console.log('[LearnKids] Tool response:', response);
 
     // The server returns data in structuredContent, not in content[0].text
