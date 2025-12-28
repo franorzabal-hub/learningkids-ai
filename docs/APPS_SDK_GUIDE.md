@@ -189,12 +189,9 @@ Your web component communicates with ChatGPT through this global object.
 Invoke MCP server tools from your UI:
 
 ```javascript
-const response = await window.openai.callTool({
-  name: 'start-lesson',
-  parameters: {
-    courseId: 'python-kids',
-    lessonNumber: 1
-  }
+const response = await window.openai.callTool('start-lesson', {
+  courseId: 'python-kids',
+  lessonNumber: 1
 });
 
 // Read structured response
@@ -550,10 +547,7 @@ function App() {
 
   const handleSelect = async (itemId) => {
     // Load full details
-    const result = await window.openai.callTool({
-      name: 'getItemDetails',
-      parameters: { itemId }
-    });
+    const result = await window.openai.callTool('getItemDetails', { itemId });
 
     setSelectedItem(result.structuredContent);
     setView('detail');
@@ -617,10 +611,7 @@ async function completeLesson(lessonId) {
 
   // 2. Persist in background
   try {
-    await window.openai.callTool({
-      name: 'saveProgress',
-      parameters: { lessonId }
-    });
+    await window.openai.callTool('saveProgress', { lessonId });
 
     window.openai.setWidgetState({
       completedLessons: [...completedLessons, lessonId]
@@ -705,7 +696,7 @@ if (!isInChatGPT) {
 ```javascript
 async function safeCallTool(name, parameters) {
   try {
-    const result = await window.openai.callTool({ name, parameters });
+    const result = await window.openai.callTool(name, parameters);
     if (result.isError) {
       throw new Error('Tool call failed');
     }
@@ -779,10 +770,7 @@ const lesson = await loadLesson(lessonIds[0]);
 ```javascript
 const debouncedSaveProgress = useMemo(
   () => debounce((lessonId) => {
-    window.openai.callTool({
-      name: 'saveProgress',
-      parameters: { lessonId }
-    });
+    window.openai.callTool('saveProgress', { lessonId });
   }, 1000),
   []
 );

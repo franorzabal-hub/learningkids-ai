@@ -76,8 +76,12 @@ Add this before the React app loads:
 
 ```javascript
 window.openai = {
-  callTool: async ({ name, parameters }) => {
-    console.log('Mock callTool:', name, parameters);
+  callTool: async (nameOrPayload, parameters = {}) => {
+    const name = typeof nameOrPayload === 'string' ? nameOrPayload : nameOrPayload?.name;
+    const payloadParams = typeof nameOrPayload === 'string'
+      ? parameters
+      : (nameOrPayload?.parameters ?? nameOrPayload?.arguments ?? {});
+    console.log('Mock callTool:', name, payloadParams);
     // Return mock data based on tool name
     if (name === 'get-courses') {
       return {

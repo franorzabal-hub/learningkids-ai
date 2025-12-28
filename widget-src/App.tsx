@@ -91,37 +91,27 @@ async function invokeCallTool(
     throw new Error('callTool not available - check ChatGPT connection');
   }
 
-  const payloadArgs = { name, arguments: parameters };
-  const payloadParams = { name, parameters };
   const callToolFn = callToolApi as (...args: unknown[]) => Promise<unknown>;
-  const prefersObject = typeof callToolApi === 'function' && callToolApi.length < 2;
 
   try {
-    if (prefersObject) {
-      try {
-        return await callToolFn(payloadArgs);
-      } catch (error) {
-        if (shouldRetryCallTool(error)) {
-          return await callToolFn(payloadParams);
-        }
-        throw error;
-      }
-    }
-
     return await callToolFn(name, parameters);
   } catch (error) {
-    if (!prefersObject && shouldRetryCallTool(error)) {
-      try {
-        return await callToolFn(payloadArgs);
-      } catch (secondaryError) {
-        if (shouldRetryCallTool(secondaryError)) {
-          return await callToolFn(payloadParams);
-        }
-        throw secondaryError;
-      }
+    if (!shouldRetryCallTool(error)) {
+      throw error;
     }
-    throw error;
   }
+
+  const payloadArgs = { name, arguments: parameters };
+  try {
+    return await callToolFn(payloadArgs);
+  } catch (error) {
+    if (!shouldRetryCallTool(error)) {
+      throw error;
+    }
+  }
+
+  const payloadParams = { name, parameters };
+  return await callToolFn(payloadParams);
 }
 
 async function callTool(

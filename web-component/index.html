@@ -36,29 +36,38 @@
     /**
      * Call MCP tool safely with error handling
      */
-    async function callTool(name, parameters = {}) {
+    async function callTool(nameOrPayload, parameters = {}) {
       try {
-        console.log('[LearnKids UI] Calling tool:', name, parameters);
+        const name = typeof nameOrPayload === 'string' ? nameOrPayload : nameOrPayload?.name;
+        const payloadParams = typeof nameOrPayload === 'string'
+          ? parameters
+          : (nameOrPayload?.parameters ?? nameOrPayload?.arguments ?? {});
+
+        console.log('[LearnKids UI] Calling tool:', name, payloadParams);
 
         if (!window.openai || !window.openai.callTool) {
           throw new Error('OpenAI API not available');
         }
 
-        const response = await window.openai.callTool({
-          name,
-          parameters
-        });
+        const response = await window.openai.callTool(name, payloadParams);
 
         console.log('[LearnKids UI] Tool response:', response);
 
-        const data = JSON.parse(response.content[0].text);
-
-        if (!data.success) {
-          throw new Error(data.error || 'Tool call failed');
+        if (response?.structuredContent) {
+          return response.structuredContent;
         }
 
-        return data.data;
+        if (response?.content?.[0]?.text) {
+          try {
+            return JSON.parse(response.content[0].text);
+          } catch {
+            return { message: response.content[0].text };
+          }
+        }
+
+        return response;
       } catch (error) {
+        const name = typeof nameOrPayload === 'string' ? nameOrPayload : nameOrPayload?.name;
         console.error(`[LearnKids UI] Tool ${name} failed:`, error);
         throw error;
       }

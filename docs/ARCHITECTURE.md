@@ -275,7 +275,7 @@ User opens app
     ↓
 Web Component mounts
     ↓
-useEffect() calls window.openai.callTool({name: 'get-courses'})
+useEffect() calls window.openai.callTool('get-courses')
     ↓
 ChatGPT → MCP Server → get-courses()
     ↓
@@ -291,9 +291,9 @@ Web Component renders course cards (Inline mode)
 ```
 User clicks "Start Learning" on Python course
     ↓
-Web Component calls window.openai.callTool({
-  name: 'start-lesson',
-  parameters: { courseId: 'python-kids', lessonNumber: 1 }
+Web Component calls window.openai.callTool('start-lesson', {
+  courseId: 'python-kids',
+  lessonNumber: 1
 })
     ↓
 ChatGPT → MCP Server → start-lesson()
@@ -318,9 +318,10 @@ Clicks "Check Answer"
     ↓
 Web Component reads textarea value
     ↓
-Calls window.openai.callTool({
-  name: 'check-student-work',
-  parameters: { courseId: 'python-kids', lessonNumber: 1, studentCode: userCode }
+Calls window.openai.callTool('check-student-work', {
+  courseId: 'python-kids',
+  lessonNumber: 1,
+  studentCode: userCode
 })
     ↓
 MCP Server → check-student-work()
@@ -470,10 +471,7 @@ function validateAnswer(userCode, expectedPattern) {
 // Don't load all lessons upfront
 // Load on-demand when user clicks
 async function loadLesson(courseId, lessonNumber) {
-  const result = await window.openai.callTool({
-    name: 'start-lesson',
-    parameters: { courseId, lessonNumber }
-  });
+  const result = await window.openai.callTool('start-lesson', { courseId, lessonNumber });
   return result.structuredContent?.lesson;
 }
 ```
@@ -510,7 +508,7 @@ setWidgetState({
 ```javascript
 async function callTool(name, params) {
   try {
-    return await window.openai.callTool({ name, parameters: params });
+    return await window.openai.callTool(name, params);
   } catch (error) {
     console.error('Tool call failed:', error);
     showMessage({
