@@ -4,7 +4,7 @@
 
 LearnKids AI is a ChatGPT-native learning platform built using OpenAI's Apps SDK. This document describes the system architecture, data flows, and key technical decisions.
 
-**Version**: 2.2.0
+**Version**: 2.6.0
 **Hosting**: Google Cloud Run (unified server)
 
 ## System Architecture

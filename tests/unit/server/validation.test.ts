@@ -47,6 +47,10 @@ describe('isValidCourseId', () => {
       expect(isValidCourseId('..%2f', mockCoursesData)).toBe(false); // ../
       expect(isValidCourseId('%2e%2e%5c', mockCoursesData)).toBe(false); // ..\
     });
+
+    it('rejects malformed URL encoding', () => {
+      expect(isValidCourseId('%ZZ', mockCoursesData)).toBe(false);
+    });
   });
 
   describe('valid course IDs', () => {

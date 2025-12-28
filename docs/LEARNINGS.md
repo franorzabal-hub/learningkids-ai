@@ -381,7 +381,7 @@ if (url.pathname === '/health') {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({
     status: 'healthy',
-    version: '2.2.0',
+    version: '2.6.0',
     server: process.env.K_SERVICE ? 'Cloud Run' : 'Local',
     transport: 'SSE',
     mcp: 'enabled',

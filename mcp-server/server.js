@@ -6,7 +6,7 @@
  * This server exposes MCP tools via HTTP/SSE for deployment on Vercel.
  * Replaces the stdio transport with SSE transport for serverless compatibility.
  *
- * @version 2.0.0
+ * @version 2.6.0
  * @license MIT
  */
 
@@ -17,6 +17,10 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+import { APP_VERSION } from '../lib/config.js';
+import { buildStudentValidation } from '../lib/lessonValidation.js';
+import { isValidCourseId, isValidLessonId } from '../lib/validation.js';
 
 // Get current directory (ESM equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -61,63 +65,8 @@ async function loadLessons(courseId) {
 }
 
 // ============================================================================
-// VALIDATION HELPERS (Same as before)
+// VALIDATION HELPERS (shared via lib/validation.js)
 // ============================================================================
-
-function isValidCourseId(courseId) {
-  if (!coursesData) return false;
-  if (courseId.includes('..') || courseId.includes('/') || courseId.includes('\\')) {
-    return false;
-  }
-  return coursesData.courses.some(course => course.id === courseId);
-}
-
-function validateAnswer(lesson, userAnswer) {
-  if (!lesson.exercise || !lesson.exercise.validation) {
-    return {
-      correct: userAnswer.trim().length > 0,
-      message: userAnswer.trim().length > 0
-        ? "Great job! ✨"
-        : "Please write some code first!"
-    };
-  }
-
-  const { validation } = lesson.exercise;
-
-  try {
-    if (validation.type === 'regex') {
-      const regex = new RegExp(validation.pattern, 'i');
-      const isValid = regex.test(userAnswer);
-
-      if (isValid) {
-        return {
-          correct: true,
-          message: lesson.reward?.message || "Excellent work! 🌟",
-          reward: lesson.reward || null,
-          nextLesson: lesson.nextLesson || null
-        };
-      } else {
-        return {
-          correct: false,
-          message: "Not quite right. " + (lesson.exercise.hint || "Try again!"),
-          hint: lesson.exercise.hint
-        };
-      }
-    }
-
-    return {
-      correct: true,
-      message: "Good effort! Keep going! 💪"
-    };
-  } catch (error) {
-    console.error('[LearnKids] Validation error:', error);
-    return {
-      correct: false,
-      message: "Oops! Something went wrong. Try again!",
-      error: error.message
-    };
-  }
-}
 
 // ============================================================================
 // MCP SERVER SETUP
@@ -126,7 +75,7 @@ function validateAnswer(lesson, userAnswer) {
 const mcpServer = new Server(
   {
     name: 'learningkids-server',
-    version: '2.0.0',
+    version: APP_VERSION,
   },
   {
     capabilities: {
@@ -247,7 +196,7 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
       console.log('[LearnKids] Tool called: getCourse', args);
       const { courseId } = args;
 
-      if (!isValidCourseId(courseId)) {
+      if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
@@ -281,7 +230,7 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
       console.log('[LearnKids] Tool called: getLesson', args);
       const { courseId, lessonId } = args;
 
-      if (!isValidCourseId(courseId)) {
+      if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
@@ -296,7 +245,7 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
         };
       }
 
-      if (lessonId.includes('..') || !lessonId.startsWith('lesson-')) {
+      if (!isValidLessonId(lessonId)) {
         return {
           content: [
             {
@@ -352,7 +301,7 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
 
       const { courseId, lessonId, answer } = args;
 
-      if (!isValidCourseId(courseId)) {
+      if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
@@ -383,7 +332,7 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
         };
       }
 
-      const result = validateAnswer(lesson, answer);
+      const result = buildStudentValidation(lesson, answer, { maxLength: 5000 });
 
       return {
         content: [
@@ -469,7 +418,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    version: '2.0.0',
+    version: APP_VERSION,
     transport: 'SSE'
   });
 });

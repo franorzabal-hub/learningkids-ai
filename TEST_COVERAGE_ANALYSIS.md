@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-**Current State: ZERO automated test coverage**
+**Current State: Baseline unit tests in place; coverage not yet measured**
 
-The LearnKids AI codebase (~1,600 lines of source code) has no automated tests. All quality assurance relies on manual testing documented in `docs/TESTING.md`. While acceptable for an early MVP, automated testing is critical before adding more features or courses.
+The LearnKids AI codebase now includes unit tests for validation, data loading, tool handler logic, and React hooks (`tests/unit/**`). Coverage is not currently tracked in CI; run `npm run test:coverage` to measure.
 
 ---
 
@@ -13,9 +13,9 @@ The LearnKids AI codebase (~1,600 lines of source code) has no automated tests. 
 | Metric | Value |
 |--------|-------|
 | Source code lines | ~1,600 |
-| Test files | 0 |
-| Test coverage | 0% |
-| Test frameworks installed | None |
+| Test files | 9 |
+| Test coverage | Not measured (run `npm run test:coverage`) |
+| Test frameworks installed | Vitest, @testing-library/react, jsdom |
 | Current version | 2.6.0 |
 
 **Technology Stack:**
@@ -31,14 +31,16 @@ The LearnKids AI codebase (~1,600 lines of source code) has no automated tests. 
 ### Priority 1: Security Functions (HIGH RISK)
 
 #### `isValidCourseId()` - Path Traversal Prevention
-**File:** `server.js:98-104` and `mcp-server/index.js:83-92`
+**File:** `lib/validation.js`
 
 ```javascript
-function isValidCourseId(courseId) {
-  if (!coursesData) return false;
-  if (courseId.includes('..') || courseId.includes('/') || courseId.includes('\\')) {
-    return false;
-  }
+export function isValidCourseId(courseId, coursesData) {
+  if (!coursesData || !coursesData.courses) return false;
+  if (typeof courseId !== 'string' || courseId.length === 0) return false;
+  if (courseId.includes('..') || courseId.includes('/') || courseId.includes('\\')) return false;
+  if (courseId.includes('\0')) return false;
+  const decoded = decodeURIComponent(courseId);
+  if (decoded.includes('..') || decoded.includes('/') || decoded.includes('\\')) return false;
   return coursesData.courses.some(course => course.id === courseId);
 }
 ```
@@ -51,8 +53,10 @@ function isValidCourseId(courseId) {
 - Empty string handling
 - Non-existent course IDs rejected
 
+**Existing coverage:** `tests/unit/server/validation.test.ts`
+
 #### Student Code Validation
-**File:** `server.js:531-644`
+**File:** `lib/lessonValidation.js`, `lib/validation.js`
 
 **Tests needed:**
 - Empty code submission handling
@@ -60,6 +64,8 @@ function isValidCourseId(courseId) {
 - Code with special characters
 - Code with malicious patterns (script injection attempts)
 - Regex pattern validation edge cases
+
+**Existing coverage:** `tests/unit/server/validation.test.ts`, `tests/unit/server/tools/toolHandlers.test.ts`
 
 ---
 

@@ -1,6 +1,6 @@
 # LearnKids AI - Cloud Run Dockerfile
 # Optimized for Google Cloud Run deployment
-# v2.4.1: Uses pre-built widget (run `npm run build:widget` before deploying)
+# v2.6.0: Uses pre-built widget (run `npm run build:widget` before deploying)
 
 FROM node:20-slim
 

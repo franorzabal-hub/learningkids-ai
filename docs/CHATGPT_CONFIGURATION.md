@@ -85,7 +85,7 @@ curl https://learningkids-ai-470541916594.us-central1.run.app/health
 ```json
 {
   "status": "healthy",
-  "version": "2.2.0",
+  "version": "2.6.0",
   "server": "Cloud Run",
   "transport": "SSE",
   "mcp": "enabled"
@@ -192,7 +192,7 @@ Check if this answer is correct for Python lesson 1: print("Hello World")
 | Property | Value |
 |----------|-------|
 | Server Name | learningkids-server |
-| Version | 2.2.0 |
+| Version | 2.6.0 |
 | Transport | SSE (Server-Sent Events) |
 | Hosting | Google Cloud Run |
 | Region | us-central1 |

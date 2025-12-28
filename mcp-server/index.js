@@ -6,7 +6,7 @@
  * This server exposes educational content and tools to ChatGPT via the Model Context Protocol.
  * It provides courses, lessons, and exercise validation for children learning to code.
  *
- * @version 1.0.0
+ * @version 2.6.0
  * @license MIT
  */
 
@@ -16,6 +16,10 @@ import { z } from 'zod';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+import { APP_VERSION } from '../lib/config.js';
+import { buildStudentValidation } from '../lib/lessonValidation.js';
+import { isValidCourseId, isValidLessonId } from '../lib/validation.js';
 
 // Get current directory (ESM equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -72,79 +76,8 @@ async function loadLessons(courseId) {
 }
 
 // ============================================================================
-// VALIDATION HELPERS
+// VALIDATION HELPERS (shared via lib/validation.js)
 // ============================================================================
-
-/**
- * Validate a course ID exists
- * @param {string} courseId - Course ID to validate
- * @returns {boolean} True if valid
- */
-function isValidCourseId(courseId) {
-  if (!coursesData) return false;
-
-  // Prevent path traversal
-  if (courseId.includes('..') || courseId.includes('/') || courseId.includes('\\')) {
-    return false;
-  }
-
-  return coursesData.courses.some(course => course.id === courseId);
-}
-
-/**
- * Validate user's code answer for an exercise
- * @param {Object} lesson - The lesson object containing validation rules
- * @param {string} userAnswer - User's submitted code
- * @returns {Object} Validation result
- */
-function validateAnswer(lesson, userAnswer) {
-  if (!lesson.exercise || !lesson.exercise.validation) {
-    // No validation rules - accept any non-empty answer
-    return {
-      correct: userAnswer.trim().length > 0,
-      message: userAnswer.trim().length > 0
-        ? "Great job! ✨"
-        : "Please write some code first!"
-    };
-  }
-
-  const { validation } = lesson.exercise;
-
-  try {
-    if (validation.type === 'regex') {
-      const regex = new RegExp(validation.pattern, 'i'); // case-insensitive
-      const isValid = regex.test(userAnswer);
-
-      if (isValid) {
-        return {
-          correct: true,
-          message: lesson.reward?.message || "Excellent work! 🌟",
-          reward: lesson.reward || null,
-          nextLesson: lesson.nextLesson || null
-        };
-      } else {
-        return {
-          correct: false,
-          message: "Not quite right. " + (lesson.exercise.hint || "Try again!"),
-          hint: lesson.exercise.hint
-        };
-      }
-    }
-
-    // Default: accept non-empty
-    return {
-      correct: true,
-      message: "Good effort! Keep going! 💪"
-    };
-  } catch (error) {
-    console.error('[LearnKids] Validation error:', error);
-    return {
-      correct: false,
-      message: "Oops! Something went wrong. Try again!",
-      error: error.message
-    };
-  }
-}
 
 // ============================================================================
 // MCP SERVER SETUP
@@ -153,7 +86,7 @@ function validateAnswer(lesson, userAnswer) {
 const server = new Server(
   {
     name: 'learningkids-server',
-    version: '1.0.0',
+    version: APP_VERSION,
   },
   {
     capabilities: {
@@ -291,7 +224,7 @@ server.setRequestHandler('tools/call', async (request) => {
       const { courseId } = args;
 
       // Validate course ID
-      if (!isValidCourseId(courseId)) {
+      if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
@@ -332,7 +265,7 @@ server.setRequestHandler('tools/call', async (request) => {
       const { courseId, lessonId } = args;
 
       // Validate course ID
-      if (!isValidCourseId(courseId)) {
+      if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
@@ -348,7 +281,7 @@ server.setRequestHandler('tools/call', async (request) => {
       }
 
       // Validate lesson ID format
-      if (lessonId.includes('..') || !lessonId.startsWith('lesson-')) {
+      if (!isValidLessonId(lessonId)) {
         return {
           content: [
             {
@@ -410,7 +343,7 @@ server.setRequestHandler('tools/call', async (request) => {
       const { courseId, lessonId, answer } = args;
 
       // Validate inputs
-      if (!isValidCourseId(courseId)) {
+      if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
@@ -443,7 +376,7 @@ server.setRequestHandler('tools/call', async (request) => {
       }
 
       // Validate the answer
-      const result = validateAnswer(lesson, answer);
+      const result = buildStudentValidation(lesson, answer, { maxLength: 5000 });
 
       return {
         content: [

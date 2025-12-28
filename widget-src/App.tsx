@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWidgetState, useWidgetProps, useOpenAiGlobal } from './hooks';
 import './styles.css';
 
@@ -356,7 +356,8 @@ function LessonViewer({
 // Main App Component
 export default function App() {
   const theme = useOpenAiGlobal('theme') || 'light';
-  const toolOutput = useWidgetProps<ToolOutputData>({});
+  const defaultToolOutput = useMemo<ToolOutputData>(() => ({}), []);
+  const toolOutput = useWidgetProps<ToolOutputData>(defaultToolOutput);
 
   const [widgetState, setWidgetState] = useWidgetState<WidgetProgress>({
     version: '1.0',

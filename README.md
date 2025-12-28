@@ -16,7 +16,7 @@ Children can install the app, browse available courses, choose one, and start le
 
 ## Architecture
 
-**Version 2.2.0 - Cloud Run Unified Server**
+**Version 2.6.0 - Cloud Run Unified Server**
 
 ```
 ┌──────────────────────────────────────┐
@@ -198,13 +198,13 @@ npm start
 | Transport | SSE (Server-Sent Events) |
 | Storage | JSON files (content), ChatGPT Widget State (progress) |
 | Hosting | Google Cloud Run |
-| Version | 2.2.0 |
+| Version | 2.6.0 |
 
 ## Project Status
 
 **Current Phase**: Production Ready - MVP Complete
 
-**Version**: 2.2.0 (Cloud Run Unified Server)
+**Version**: 2.6.0 (Cloud Run Unified Server)
 
 **Live URL**: https://learningkids-ai-470541916594.us-central1.run.app
 

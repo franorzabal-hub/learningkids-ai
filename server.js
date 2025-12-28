@@ -25,6 +25,11 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+import { APP_VERSION } from './lib/config.js';
+import { buildStudentValidation } from './lib/lessonValidation.js';
+import { createSessionStore } from './lib/sessionStore.js';
+import { isValidCourseId } from './lib/validation.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -53,7 +58,7 @@ const MIME_TYPES = {
 };
 
 // Session management for SSE connections
-const sessions = new Map();
+const sessionStore = createSessionStore();
 
 // ============================================================================
 // DATA LOADING
@@ -95,18 +100,22 @@ async function loadLessons(courseId) {
   }
 }
 
-function isValidCourseId(courseId) {
-  if (!coursesData) return false;
-  if (courseId.includes('..') || courseId.includes('/') || courseId.includes('\\')) {
-    return false;
+function getBaseUrl(url, req) {
+  if (process.env.BASE_URL) {
+    return process.env.BASE_URL;
   }
-  return coursesData.courses.some(course => course.id === courseId);
-}
 
-// Base URL for external resources (Cloud Run URL)
-const BASE_URL = process.env.K_SERVICE
-  ? 'https://learningkids-ai-470541916594.us-central1.run.app'
-  : 'http://localhost:8000';
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const protocol = Array.isArray(forwardedProto)
+    ? forwardedProto[0]
+    : forwardedProto || url.protocol.replace(':', '');
+  const host = Array.isArray(forwardedHost)
+    ? forwardedHost[0]
+    : forwardedHost || req.headers.host || url.host;
+
+  return `${protocol}://${host}`;
+}
 
 // Widget HTML cache
 let widgetHtml = null;
@@ -201,7 +210,7 @@ function createMcpServer() {
   const server = new Server(
     {
       name: 'learningkids-server',
-      version: '2.6.0',
+      version: APP_VERSION,
     },
     {
       capabilities: {
@@ -428,7 +437,7 @@ function createMcpServer() {
           const { courseId } = args;
           await loadCourses();
 
-          if (!isValidCourseId(courseId)) {
+          if (!isValidCourseId(courseId, coursesData)) {
             return {
               content: [
                 {
@@ -474,7 +483,7 @@ function createMcpServer() {
           const { courseId, lessonNumber } = args;
           await loadCourses();
 
-          if (!isValidCourseId(courseId)) {
+          if (!isValidCourseId(courseId, coursesData)) {
             return {
               content: [
                 {
@@ -532,7 +541,7 @@ function createMcpServer() {
           const { courseId, lessonNumber, studentCode } = args;
           await loadCourses();
 
-          if (!isValidCourseId(courseId)) {
+          if (!isValidCourseId(courseId, coursesData)) {
             return {
               content: [
                 {
@@ -560,66 +569,21 @@ function createMcpServer() {
             };
           }
 
-          // Proper validation using lesson's regex pattern
-          const hasAttempt = typeof studentCode === 'string' && studentCode.trim().length > 0;
+          const validationResult = buildStudentValidation(lesson, studentCode, { maxLength: 5000 });
+          const feedback = validationResult.message
+            || (validationResult.correct
+              ? '✨ Great job! Your code is correct!'
+              : 'Your code needs some adjustments. Check the instructions and try again!');
 
-          if (!hasAttempt) {
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: 'Please write some code to check.',
-                },
-              ],
-              structuredContent: {
-                validation: {
-                  correct: false,
-                  hasAttempt: false,
-                  message: 'No code provided. Please write your code and try again!',
-                },
-              },
-              _meta: {
-                'openai/outputTemplate': WIDGET_URI,
-                'openai/widgetAccessible': true,
-              },
-            };
-          }
-
-          // Get validation pattern from lesson
-          const validation = lesson.exercise?.validation;
-          let isCorrect = false;
-          let errorMessage = 'Your code needs some adjustments. Check the instructions and try again!';
-
-          if (validation && validation.type === 'regex' && validation.pattern) {
-            try {
-              // Use dotall flag (s) to handle multiline code
-              const regex = new RegExp(validation.pattern, 's');
-              isCorrect = regex.test(studentCode);
-
-              if (!isCorrect && validation.errorMessage) {
-                errorMessage = validation.errorMessage;
-              }
-            } catch (regexError) {
-              console.error('[LearnKids] Invalid regex pattern:', validation.pattern, regexError);
-              // Fallback: basic check if regex is invalid
-              isCorrect = studentCode.trim().length > 10;
-            }
-          } else {
-            // No validation pattern defined - fallback to basic check
-            console.warn('[LearnKids] No validation pattern for lesson:', lessonId);
-            isCorrect = studentCode.trim().length > 10;
-          }
-
-          // Build response
-          const feedback = isCorrect
-            ? '✨ Great job! Your code is correct!'
-            : errorMessage;
-
-          const reward = isCorrect && lesson.reward ? {
-            stars: lesson.reward.stars || 1,
-            badge: lesson.reward.badge,
-            message: lesson.reward.message,
-          } : null;
+          const responseValidation = {
+            correct: validationResult.correct,
+            hasAttempt: validationResult.hasAttempt,
+            message: feedback,
+            reward: validationResult.correct ? validationResult.reward || null : null,
+            nextLesson: validationResult.correct ? validationResult.nextLesson || null : null,
+            hint: validationResult.hint,
+            error: validationResult.error,
+          };
 
           return {
             content: [
@@ -629,13 +593,7 @@ function createMcpServer() {
               },
             ],
             structuredContent: {
-              validation: {
-                correct: isCorrect,
-                hasAttempt: true,
-                message: feedback,
-                reward: reward,
-                nextLesson: isCorrect ? lesson.nextLesson : null,
-              },
+              validation: responseValidation,
             },
             _meta: {
               'openai/outputTemplate': WIDGET_URI,
@@ -690,21 +648,28 @@ async function handleSseRequest(req, res, url) {
     // We can't know it ahead of time, so we store this session globally and match later
     // Store with a temporary key that we'll update when first POST arrives
     const tempKey = `temp-${Date.now()}`;
-    sessions.set(tempKey, { server, transport, createdAt: Date.now(), temp: true });
+    const session = sessionStore.addSession(tempKey, {
+      server,
+      transport,
+      createdAt: Date.now(),
+      temp: true,
+    });
 
     console.log(`[LearnKids] Stored session with temp key: ${tempKey}`);
 
     // Clean up session when connection closes
     req.on('close', () => {
-      console.log(`[LearnKids] SSE connection closed for ${tempKey}`);
-      sessions.delete(tempKey);
+      const key = session.key;
+      if (sessionStore.removeSession(session)) {
+        console.log(`[LearnKids] SSE connection closed for ${key}`);
+      }
     });
 
     // Also clean up after 1 hour of inactivity
     setTimeout(() => {
-      if (sessions.has(tempKey)) {
-        console.log(`[LearnKids] Cleaning up inactive session: ${tempKey}`);
-        sessions.delete(tempKey);
+      const key = session.key;
+      if (sessionStore.removeSession(session)) {
+        console.log(`[LearnKids] Cleaning up inactive session: ${key}`);
       }
     }, 3600000); // 1 hour
   } catch (error) {
@@ -732,29 +697,26 @@ async function handlePostMessage(req, res, url) {
     // Parse the JSON-RPC message
     const message = JSON.parse(body);
 
+    if (!sessionId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32602, message: 'Missing sessionId' },
+        id: message.id
+      }));
+      return;
+    }
+
     // Try to find session by exact sessionId first
-    let session = sessions.get(sessionId);
+    const { session, promoted, previousKey } = sessionStore.promoteSession(sessionId);
 
-    if (!session) {
-      // Session not found - look for any temp session and promote it
-      console.log(`[LearnKids] Session ${sessionId} not found, searching for temp session...`);
-
-      for (const [key, value] of sessions.entries()) {
-        if (value.temp) {
-          console.log(`[LearnKids] Promoting temp session ${key} to ${sessionId}`);
-          // Promote this temp session to the real sessionId
-          sessions.delete(key);
-          value.temp = false;
-          sessions.set(sessionId, value);
-          session = value;
-          break;
-        }
-      }
+    if (promoted) {
+      console.log(`[LearnKids] Promoting temp session ${previousKey} to ${sessionId}`);
     }
 
     if (!session) {
       console.error(`[LearnKids] No session available for: ${sessionId}`);
-      console.log('[LearnKids] Active sessions:', Array.from(sessions.keys()));
+      console.log('[LearnKids] Active sessions:', sessionStore.listKeys());
 
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -825,7 +787,7 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'healthy',
-      version: '2.6.0',
+      version: APP_VERSION,
       server: process.env.K_SERVICE ? 'Cloud Run' : 'Local',
       transport: 'SSE',
       mcp: 'enabled',
@@ -837,10 +799,11 @@ const httpServer = createServer(async (req, res) => {
 
   // API info endpoint
   if (req.method === 'GET' && url.pathname === '/api') {
+    const baseUrl = getBaseUrl(url, req);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       name: 'LearnKids AI',
-      version: '2.6.0',
+      version: APP_VERSION,
       description: 'Interactive learning platform for kids',
       mcp: {
         endpoint: '/mcp',
@@ -849,7 +812,7 @@ const httpServer = createServer(async (req, res) => {
         resources: [WIDGET_URI],
       },
       openai: {
-        widgetDomain: BASE_URL,
+        widgetDomain: baseUrl,
         widgetAccessible: true,
         outputTemplate: WIDGET_URI,
       },
@@ -887,7 +850,7 @@ const httpServer = createServer(async (req, res) => {
 
   // Serve assets (images, etc.)
   if (req.method === 'GET' && url.pathname.startsWith('/assets/')) {
-    const assetPath = path.join(WEB_COMPONENT_DIR, url.pathname);
+    const assetPath = path.join(WEB_COMPONENT_DIR, url.pathname.replace(/^\/+/, ''));
     await serveStaticFile(res, assetPath);
     return;
   }
