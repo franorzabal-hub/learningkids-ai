@@ -12,6 +12,7 @@
  */
 
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { URL, fileURLToPath } from 'node:url';
@@ -37,6 +38,7 @@ const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 8000;
 const SSE_PATH = '/mcp';
 const POST_PATH = '/mcp/messages';
+const MAX_BODY_BYTES = 1024 * 1024;
 const WEB_COMPONENT_DIR = path.join(__dirname, 'web-component', 'dist');
 
 // Debug mode: set DEBUG=true to enable verbose logging
@@ -404,6 +406,7 @@ function createMcpServer() {
             id: course.id,
             title: course.title,
             emoji: course.emoji,
+            color: course.color,
             description: course.description,
             ageRange: course.ageRange,
             difficulty: course.difficulty,
@@ -516,6 +519,7 @@ function createMcpServer() {
             structuredContent: {
               lesson: {
                 id: lesson.id,
+                courseId,
                 number: lessonNumber,
                 title: lesson.title,
                 objective: lesson.objective,
@@ -642,29 +646,19 @@ async function handleSseRequest(req, res, url) {
     // Note: ChatGPT generates its own sessionId and includes it in POST requests
     // We can't know it ahead of time, so we store this session globally and match later
     // Store with a temporary key that we'll update when first POST arrives
-    const tempKey = `temp-${Date.now()}`;
+    const tempKey = `temp-${randomUUID()}`;
     const session = sessionStore.addSession(tempKey, {
       server,
       transport,
       createdAt: Date.now(),
+      lastSeen: Date.now(),
       temp: true,
     });
 
     console.log(`[LearnKids] Stored session with temp key: ${tempKey}`);
 
-    // Set up cleanup timeout (1 hour of inactivity)
-    // Fixed: Cancel timeout when connection closes to prevent memory leak
-    // Claude (Opus 4.5) - 2025-12-27
-    const cleanupTimeoutId = setTimeout(() => {
-      const key = session.key;
-      if (sessionStore.removeSession(session)) {
-        console.log(`[LearnKids] Cleaning up inactive session: ${key}`);
-      }
-    }, 3600000); // 1 hour
-
     // Clean up session when connection closes
     req.on('close', () => {
-      clearTimeout(cleanupTimeoutId); // Cancel pending timeout to prevent memory leak
       const key = session.key;
       if (sessionStore.removeSession(session)) {
         console.log(`[LearnKids] SSE connection closed for ${key}`);
@@ -684,16 +678,39 @@ async function handlePostMessage(req, res, url) {
 
   // Read request body
   const chunks = [];
+  let bodySize = 0;
   for await (const chunk of req) {
+    bodySize += chunk.length;
+    if (bodySize > MAX_BODY_BYTES) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32602, message: 'Payload too large' },
+        id: null
+      }));
+      req.destroy();
+      return;
+    }
     chunks.push(chunk);
   }
   const body = Buffer.concat(chunks).toString();
 
-  console.log('[LearnKids] Message body:', body);
+  console.log('[LearnKids] Message body size:', body.length);
 
   try {
     // Parse the JSON-RPC message
-    const message = JSON.parse(body);
+    let message;
+    try {
+      message = JSON.parse(body);
+    } catch (parseError) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32700, message: 'Parse error' },
+        id: null
+      }));
+      return;
+    }
 
     if (!sessionId) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -724,6 +741,8 @@ async function handlePostMessage(req, res, url) {
       }));
       return;
     }
+
+    sessionStore.touchSession(session);
 
     // Handle the message through the transport
     await session.transport.handleMessage(message);
@@ -869,7 +888,7 @@ httpServer.listen(PORT, async () => {
   console.log(`  Health check: GET http://localhost:${PORT}/health`);
   console.log(`  API info: GET http://localhost:${PORT}/api`);
 
-  // Start periodic session cleanup (every 15 minutes, remove sessions older than 1 hour)
+  // Start periodic session cleanup (every 15 minutes, remove sessions inactive for 1 hour)
   // Claude (Opus 4.5) - 2025-12-27
   sessionStore.startPeriodicCleanup();
   console.log(`  Session cleanup: enabled (every 15 min)`);

@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url';
 
 import { APP_VERSION } from '../lib/config.js';
 import { buildStudentValidation } from '../lib/lessonValidation.js';
-import { isValidCourseId, isValidLessonId } from '../lib/validation.js';
+import { isValidCourseId } from '../lib/validation.js';
 
 // Get current directory (ESM equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -90,15 +90,16 @@ mcpServer.setRequestHandler('tools/list', async () => {
   return {
     tools: [
       {
-        name: 'getCourses',
+        name: 'get-courses',
         description: 'Returns a list of all available courses. Use this when the student wants to browse available courses or start learning.',
         inputSchema: {
           type: 'object',
           properties: {},
+          additionalProperties: false,
         },
       },
       {
-        name: 'getCourse',
+        name: 'view-course-details',
         description: 'Gets detailed information about a specific course including all lesson titles and objectives.',
         inputSchema: {
           type: 'object',
@@ -109,10 +110,11 @@ mcpServer.setRequestHandler('tools/list', async () => {
             },
           },
           required: ['courseId'],
+          additionalProperties: false,
         },
       },
       {
-        name: 'getLesson',
+        name: 'start-lesson',
         description: 'Retrieves complete content for a specific lesson including explanations, examples, and exercises.',
         inputSchema: {
           type: 'object',
@@ -121,16 +123,19 @@ mcpServer.setRequestHandler('tools/list', async () => {
               type: 'string',
               description: 'The course identifier',
             },
-            lessonId: {
-              type: 'string',
-              description: 'The lesson identifier (e.g., "lesson-1")',
+            lessonNumber: {
+              type: 'number',
+              description: 'Lesson number (1-10)',
+              minimum: 1,
+              maximum: 10,
             },
           },
-          required: ['courseId', 'lessonId'],
+          required: ['courseId', 'lessonNumber'],
+          additionalProperties: false,
         },
       },
       {
-        name: 'checkAnswer',
+        name: 'check-student-work',
         description: 'Validates a student\'s code submission for an exercise. Returns whether the answer is correct and provides feedback.',
         inputSchema: {
           type: 'object',
@@ -139,16 +144,20 @@ mcpServer.setRequestHandler('tools/list', async () => {
               type: 'string',
               description: 'The course identifier',
             },
-            lessonId: {
-              type: 'string',
-              description: 'The lesson identifier',
+            lessonNumber: {
+              type: 'number',
+              description: 'Lesson number (1-10)',
+              minimum: 1,
+              maximum: 10,
             },
-            answer: {
+            studentCode: {
               type: 'string',
               description: 'The student\'s code submission',
+              maxLength: 5000,
             },
           },
-          required: ['courseId', 'lessonId', 'answer'],
+          required: ['courseId', 'lessonNumber', 'studentCode'],
+          additionalProperties: false,
         },
       },
     ],
@@ -163,37 +172,36 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
       await loadCourses();
     }
 
-    // getCourses
-    if (name === 'getCourses') {
-      console.log('[LearnKids] Tool called: getCourses');
+    // get-courses
+    if (name === 'get-courses') {
+      console.log('[LearnKids] Tool called: get-courses');
+      const coursesList = coursesData.courses.map(course => ({
+        id: course.id,
+        title: course.title,
+        emoji: course.emoji,
+        color: course.color,
+        description: course.description,
+        ageRange: course.ageRange,
+        difficulty: course.difficulty,
+        totalLessons: course.totalLessons,
+        estimatedDuration: course.estimatedDuration,
+      }));
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: {
-                courses: coursesData.courses.map(course => ({
-                  id: course.id,
-                  title: course.title,
-                  emoji: course.emoji,
-                  color: course.color,
-                  description: course.description,
-                  ageRange: course.ageRange,
-                  difficulty: course.difficulty,
-                  totalLessons: course.totalLessons,
-                  estimatedDuration: course.estimatedDuration,
-                })),
-              },
-            }),
+            text: `Found ${coursesList.length} course${coursesList.length !== 1 ? 's' : ''} available for learning.`,
           },
         ],
+        structuredContent: {
+          courses: coursesList,
+        },
       };
     }
 
-    // getCourse
-    if (name === 'getCourse') {
-      console.log('[LearnKids] Tool called: getCourse', args);
+    // view-course-details
+    if (name === 'view-course-details') {
+      console.log('[LearnKids] Tool called: view-course-details', args);
       const { courseId } = args;
 
       if (!isValidCourseId(courseId, coursesData)) {
@@ -201,13 +209,10 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Course not found',
-                errorCode: 'COURSE_NOT_FOUND',
-              }),
+              text: `Course "${courseId}" not found. Please use get-courses to see available courses.`,
             },
           ],
+          isError: true,
         };
       }
 
@@ -216,51 +221,45 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: { course },
-            }),
+            text: `Loaded details for "${course.title}" - ${course.totalLessons} lessons covering ${course.description}`,
           },
         ],
+        structuredContent: {
+          course: {
+            id: course.id,
+            title: course.title,
+            description: course.description,
+            ageRange: course.ageRange,
+            difficulty: course.difficulty,
+            totalLessons: course.totalLessons,
+            estimatedDuration: course.estimatedDuration,
+            prerequisites: course.prerequisites || [],
+            learningObjectives: course.learningObjectives || [],
+            lessons: course.lessons || [],
+          },
+        },
       };
     }
 
-    // getLesson
-    if (name === 'getLesson') {
-      console.log('[LearnKids] Tool called: getLesson', args);
-      const { courseId, lessonId } = args;
+    // start-lesson
+    if (name === 'start-lesson') {
+      console.log('[LearnKids] Tool called: start-lesson', args);
+      const { courseId, lessonNumber } = args;
 
       if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Course not found',
-                errorCode: 'COURSE_NOT_FOUND',
-              }),
+              text: `Course "${courseId}" not found.`,
             },
           ],
-        };
-      }
-
-      if (!isValidLessonId(lessonId)) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Invalid lesson ID',
-                errorCode: 'INVALID_LESSON_ID',
-              }),
-            },
-          ],
+          isError: true,
         };
       }
 
       const lessonsData = await loadLessons(courseId);
+      const lessonId = `lesson-${lessonNumber}`;
       const lesson = lessonsData.lessons.find(l => l.id === lessonId);
 
       if (!lesson) {
@@ -268,13 +267,10 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Lesson not found',
-                errorCode: 'LESSON_NOT_FOUND',
-              }),
+              text: `Lesson ${lessonNumber} not found in this course. Available lessons: 1-${lessonsData.lessons.length}`,
             },
           ],
+          isError: true,
         };
       }
 
@@ -282,40 +278,49 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: { lesson },
-            }),
+            text: `Starting "${lesson.title}" - ${lesson.objective}`,
           },
         ],
+        structuredContent: {
+          lesson: {
+            id: lesson.id,
+            courseId,
+            number: lessonNumber,
+            title: lesson.title,
+            objective: lesson.objective,
+            duration: lesson.duration,
+            content: lesson.content,
+            examples: lesson.examples,
+            exercise: lesson.exercise,
+          },
+        },
       };
     }
 
-    // checkAnswer
-    if (name === 'checkAnswer') {
-      console.log('[LearnKids] Tool called: checkAnswer', {
+    // check-student-work
+    if (name === 'check-student-work') {
+      console.log('[LearnKids] Tool called: check-student-work', {
         courseId: args.courseId,
-        lessonId: args.lessonId,
-        answerLength: args.answer?.length,
+        lessonNumber: args.lessonNumber,
+        answerLength: args.studentCode?.length,
       });
 
-      const { courseId, lessonId, answer } = args;
+      const { courseId, lessonNumber, studentCode } = args;
 
       if (!isValidCourseId(courseId, coursesData)) {
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Course not found',
-              }),
+              text: `Course "${courseId}" not found.`,
             },
           ],
+          isError: true,
         };
       }
 
       const lessonsData = await loadLessons(courseId);
+      const lessonId = `lesson-${lessonNumber}`;
       const lesson = lessonsData.lessons.find(l => l.id === lessonId);
 
       if (!lesson) {
@@ -323,27 +328,39 @@ mcpServer.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Lesson not found',
-              }),
+              text: `Lesson ${lessonNumber} not found.`,
             },
           ],
+          isError: true,
         };
       }
 
-      const result = buildStudentValidation(lesson, answer, { maxLength: 5000 });
+      const validationResult = buildStudentValidation(lesson, studentCode, { maxLength: 5000 });
+      const feedback = validationResult.message
+        || (validationResult.correct
+          ? '✨ Great job! Your code is correct!'
+          : 'Your code needs some adjustments. Check the instructions and try again!');
+
+      const responseValidation = {
+        correct: validationResult.correct,
+        hasAttempt: validationResult.hasAttempt,
+        message: feedback,
+        reward: validationResult.correct ? validationResult.reward || null : null,
+        nextLesson: validationResult.correct ? validationResult.nextLesson || null : null,
+        hint: validationResult.hint,
+        error: validationResult.error,
+      };
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: result,
-            }),
+            text: feedback,
           },
         ],
+        structuredContent: {
+          validation: responseValidation,
+        },
       };
     }
 
@@ -410,8 +427,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (web component)
-app.use(express.static(path.join(__dirname, '..', 'web-component')));
+// Serve static files (Vite build output)
+app.use(express.static(path.join(__dirname, '..', 'web-component', 'dist')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -476,7 +493,7 @@ app.get('/api/mcp', async (req, res) => {
 
 // Catch-all route for SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'web-component', 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'web-component', 'dist', 'index.html'));
 });
 
 // ============================================================================

@@ -36,7 +36,8 @@ Children can install the app, browse available courses, choose one, and start le
 ├──────────────────────────────────────┤
 │  Node.js HTTP Server                 │
 │  ├─ / (Widget - index.html)          │
-│  ├─ /styles.css (static)             │
+│  ├─ /widget.css (static)             │
+│  ├─ /widget.js (static)              │
 │  ├─ /assets/* (static)               │
 │  ├─ /mcp (SSE endpoint)              │
 │  ├─ /mcp/messages (POST)             │
@@ -74,10 +75,10 @@ learningkids-ai/
 │       ├── courses.json        # Course catalog
 │       └── lessons/
 │           └── python-kids.json
+├── widget-src/                 # Widget source (React + Vite)
 ├── web-component/
-│   ├── index.html              # Main UI (React)
-│   ├── styles.css              # Kid-friendly styles
-│   └── assets/                 # Images and icons
+│   ├── dist/                   # Vite build output served by servers
+│   └── assets/                 # Images and icons (demo/static)
 └── docs/
     ├── ARCHITECTURE.md         # System design
     ├── APPS_SDK_GUIDE.md       # Apps SDK best practices
@@ -193,7 +194,7 @@ npm start
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 18 (CDN), HTML5, CSS3 |
+| Frontend | React 19 (Vite), HTML5, CSS3 |
 | Backend | Node.js 20+, MCP SDK |
 | Transport | SSE (Server-Sent Events) |
 | Storage | JSON files (content), ChatGPT Widget State (progress) |

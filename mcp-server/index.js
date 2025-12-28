@@ -12,14 +12,13 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { APP_VERSION } from '../lib/config.js';
 import { buildStudentValidation } from '../lib/lessonValidation.js';
-import { isValidCourseId, isValidLessonId } from '../lib/validation.js';
+import { isValidCourseId } from '../lib/validation.js';
 
 // Get current directory (ESM equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -107,15 +106,16 @@ server.setRequestHandler('tools/list', async () => {
   return {
     tools: [
       {
-        name: 'getCourses',
+        name: 'get-courses',
         description: 'Returns a list of all available courses. Use this when the student wants to browse available courses or start learning.',
         inputSchema: {
           type: 'object',
           properties: {},
+          additionalProperties: false,
         },
       },
       {
-        name: 'getCourse',
+        name: 'view-course-details',
         description: 'Gets detailed information about a specific course including all lesson titles and objectives. Use this when the student wants to know more about a specific course before starting.',
         inputSchema: {
           type: 'object',
@@ -126,10 +126,11 @@ server.setRequestHandler('tools/list', async () => {
             },
           },
           required: ['courseId'],
+          additionalProperties: false,
         },
       },
       {
-        name: 'getLesson',
+        name: 'start-lesson',
         description: 'Retrieves complete content for a specific lesson including explanations, examples, and exercises. Use this when the student wants to start or continue a lesson.',
         inputSchema: {
           type: 'object',
@@ -138,16 +139,19 @@ server.setRequestHandler('tools/list', async () => {
               type: 'string',
               description: 'The course identifier',
             },
-            lessonId: {
-              type: 'string',
-              description: 'The lesson identifier (e.g., "lesson-1")',
+            lessonNumber: {
+              type: 'number',
+              description: 'Lesson number (1-10)',
+              minimum: 1,
+              maximum: 10,
             },
           },
-          required: ['courseId', 'lessonId'],
+          required: ['courseId', 'lessonNumber'],
+          additionalProperties: false,
         },
       },
       {
-        name: 'checkAnswer',
+        name: 'check-student-work',
         description: 'Validates a student\'s code submission for an exercise. Returns whether the answer is correct and provides feedback. Use this when the student submits their code for an exercise.',
         inputSchema: {
           type: 'object',
@@ -156,16 +160,20 @@ server.setRequestHandler('tools/list', async () => {
               type: 'string',
               description: 'The course identifier',
             },
-            lessonId: {
-              type: 'string',
-              description: 'The lesson identifier',
+            lessonNumber: {
+              type: 'number',
+              description: 'Lesson number (1-10)',
+              minimum: 1,
+              maximum: 10,
             },
-            answer: {
+            studentCode: {
               type: 'string',
               description: 'The student\'s code submission',
+              maxLength: 5000,
             },
           },
-          required: ['courseId', 'lessonId', 'answer'],
+          required: ['courseId', 'lessonNumber', 'studentCode'],
+          additionalProperties: false,
         },
       },
     ],
@@ -185,41 +193,41 @@ server.setRequestHandler('tools/call', async (request) => {
     }
 
     // ========================================================================
-    // Tool: getCourses
+    // Tool: get-courses
     // ========================================================================
-    if (name === 'getCourses') {
-      console.error('[LearnKids] Tool called: getCourses');
+    if (name === 'get-courses') {
+      console.error('[LearnKids] Tool called: get-courses');
+
+      const coursesList = coursesData.courses.map(course => ({
+        id: course.id,
+        title: course.title,
+        emoji: course.emoji,
+        color: course.color,
+        description: course.description,
+        ageRange: course.ageRange,
+        difficulty: course.difficulty,
+        totalLessons: course.totalLessons,
+        estimatedDuration: course.estimatedDuration,
+      }));
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: {
-                courses: coursesData.courses.map(course => ({
-                  id: course.id,
-                  title: course.title,
-                  emoji: course.emoji,
-                  color: course.color,
-                  description: course.description,
-                  ageRange: course.ageRange,
-                  difficulty: course.difficulty,
-                  totalLessons: course.totalLessons,
-                  estimatedDuration: course.estimatedDuration,
-                })),
-              },
-            }),
+            text: `Found ${coursesList.length} course${coursesList.length !== 1 ? 's' : ''} available for learning.`,
           },
         ],
+        structuredContent: {
+          courses: coursesList,
+        },
       };
     }
 
     // ========================================================================
-    // Tool: getCourse
+    // Tool: view-course-details
     // ========================================================================
-    if (name === 'getCourse') {
-      console.error('[LearnKids] Tool called: getCourse', args);
+    if (name === 'view-course-details') {
+      console.error('[LearnKids] Tool called: view-course-details', args);
 
       const { courseId } = args;
 
@@ -229,13 +237,10 @@ server.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Course not found',
-                errorCode: 'COURSE_NOT_FOUND',
-              }),
+              text: `Course "${courseId}" not found. Please use get-courses to see available courses.`,
             },
           ],
+          isError: true,
         };
       }
 
@@ -245,24 +250,33 @@ server.setRequestHandler('tools/call', async (request) => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: {
-                course,
-              },
-            }),
+            text: `Loaded details for "${course.title}" - ${course.totalLessons} lessons covering ${course.description}`,
           },
         ],
+        structuredContent: {
+          course: {
+            id: course.id,
+            title: course.title,
+            description: course.description,
+            ageRange: course.ageRange,
+            difficulty: course.difficulty,
+            totalLessons: course.totalLessons,
+            estimatedDuration: course.estimatedDuration,
+            prerequisites: course.prerequisites || [],
+            learningObjectives: course.learningObjectives || [],
+            lessons: course.lessons || [],
+          },
+        },
       };
     }
 
     // ========================================================================
-    // Tool: getLesson
+    // Tool: start-lesson
     // ========================================================================
-    if (name === 'getLesson') {
-      console.error('[LearnKids] Tool called: getLesson', args);
+    if (name === 'start-lesson') {
+      console.error('[LearnKids] Tool called: start-lesson', args);
 
-      const { courseId, lessonId } = args;
+      const { courseId, lessonNumber } = args;
 
       // Validate course ID
       if (!isValidCourseId(courseId, coursesData)) {
@@ -270,34 +284,16 @@ server.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Course not found',
-                errorCode: 'COURSE_NOT_FOUND',
-              }),
+              text: `Course "${courseId}" not found.`,
             },
           ],
-        };
-      }
-
-      // Validate lesson ID format
-      if (!isValidLessonId(lessonId)) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Invalid lesson ID',
-                errorCode: 'INVALID_LESSON_ID',
-              }),
-            },
-          ],
+          isError: true,
         };
       }
 
       // Load lessons for this course
       const lessonsData = await loadLessons(courseId);
+      const lessonId = `lesson-${lessonNumber}`;
       const lesson = lessonsData.lessons.find(l => l.id === lessonId);
 
       if (!lesson) {
@@ -305,13 +301,10 @@ server.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Lesson not found',
-                errorCode: 'LESSON_NOT_FOUND',
-              }),
+              text: `Lesson ${lessonNumber} not found in this course. Available lessons: 1-${lessonsData.lessons.length}`,
             },
           ],
+          isError: true,
         };
       }
 
@@ -319,28 +312,36 @@ server.setRequestHandler('tools/call', async (request) => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: {
-                lesson,
-              },
-            }),
+            text: `Starting "${lesson.title}" - ${lesson.objective}`,
           },
         ],
+        structuredContent: {
+          lesson: {
+            id: lesson.id,
+            courseId,
+            number: lessonNumber,
+            title: lesson.title,
+            objective: lesson.objective,
+            duration: lesson.duration,
+            content: lesson.content,
+            examples: lesson.examples,
+            exercise: lesson.exercise,
+          },
+        },
       };
     }
 
     // ========================================================================
-    // Tool: checkAnswer
+    // Tool: check-student-work
     // ========================================================================
-    if (name === 'checkAnswer') {
-      console.error('[LearnKids] Tool called: checkAnswer', {
+    if (name === 'check-student-work') {
+      console.error('[LearnKids] Tool called: check-student-work', {
         courseId: args.courseId,
-        lessonId: args.lessonId,
-        answerLength: args.answer?.length,
+        lessonNumber: args.lessonNumber,
+        answerLength: args.studentCode?.length,
       });
 
-      const { courseId, lessonId, answer } = args;
+      const { courseId, lessonNumber, studentCode } = args;
 
       // Validate inputs
       if (!isValidCourseId(courseId, coursesData)) {
@@ -348,17 +349,16 @@ server.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Course not found',
-              }),
+              text: `Course "${courseId}" not found.`,
             },
           ],
+          isError: true,
         };
       }
 
       // Load lesson
       const lessonsData = await loadLessons(courseId);
+      const lessonId = `lesson-${lessonNumber}`;
       const lesson = lessonsData.lessons.find(l => l.id === lessonId);
 
       if (!lesson) {
@@ -366,28 +366,40 @@ server.setRequestHandler('tools/call', async (request) => {
           content: [
             {
               type: 'text',
-              text: JSON.stringify({
-                success: false,
-                error: 'Lesson not found',
-              }),
+              text: `Lesson ${lessonNumber} not found.`,
             },
           ],
+          isError: true,
         };
       }
 
       // Validate the answer
-      const result = buildStudentValidation(lesson, answer, { maxLength: 5000 });
+      const validationResult = buildStudentValidation(lesson, studentCode, { maxLength: 5000 });
+      const feedback = validationResult.message
+        || (validationResult.correct
+          ? '✨ Great job! Your code is correct!'
+          : 'Your code needs some adjustments. Check the instructions and try again!');
+
+      const responseValidation = {
+        correct: validationResult.correct,
+        hasAttempt: validationResult.hasAttempt,
+        message: feedback,
+        reward: validationResult.correct ? validationResult.reward || null : null,
+        nextLesson: validationResult.correct ? validationResult.nextLesson || null : null,
+        hint: validationResult.hint,
+        error: validationResult.error,
+      };
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({
-              success: true,
-              data: result,
-            }),
+            text: feedback,
           },
         ],
+        structuredContent: {
+          validation: responseValidation,
+        },
       };
     }
 

@@ -304,9 +304,9 @@ COPY web-component ./web-component  # Added
 
 ## Development Patterns
 
-### Pattern 1: Single File React (No Build Step)
+### Pattern 1: Single File React (No Build Step) (Deprecated)
 
-**Approach**: Load React via CDN, use Babel standalone for JSX.
+**Approach**: Load React via CDN, use Babel standalone for JSX. Replaced by Vite build output to avoid unsafe-eval in the ChatGPT sandbox.
 
 ```html
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>

@@ -32,6 +32,7 @@ interface Exercise {
 
 interface Lesson {
   id: string;
+  courseId?: string;
   order: number;
   title: string;
   duration: string;
@@ -57,12 +58,15 @@ interface ToolOutputData {
   courses?: Course[];
   course?: Course;
   lesson?: Lesson;
+  courseId?: string;
   validation?: {
     correct: boolean;
     hasAttempt: boolean;
     message?: string;
     reward?: { stars: number; badge?: string };
     nextLesson?: string;
+    hint?: string;
+    error?: string;
   };
 }
 
@@ -198,6 +202,13 @@ function LessonViewer({
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<NonNullable<ToolOutputData['validation']> | null>(null);
   const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    setUserCode(lesson.exercise?.template || '');
+    setResult(null);
+    setShowHint(false);
+    setChecking(false);
+  }, [lesson.id, lesson.exercise?.template]);
 
   const handleCheckAnswer = async () => {
     setChecking(true);
@@ -402,6 +413,13 @@ export default function App() {
         // If we have a lesson from tool output, show it
         if (toolOutput?.lesson) {
           console.log('[LearnKids] Found lesson in toolOutput:', toolOutput.lesson.title);
+          const resolvedCourseId = toolOutput.courseId
+            || toolOutput.lesson.courseId
+            || widgetState.currentCourseId
+            || null;
+          if (resolvedCourseId) {
+            setCurrentCourseId(resolvedCourseId);
+          }
           setCurrentLesson(toolOutput.lesson);
           setView('lesson');
           return;

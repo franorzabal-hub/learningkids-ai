@@ -54,8 +54,12 @@ server.tool("get", { id: z.string() }, handler);
 server.tool("do", { data: z.string() }, handler);
 
 // ✅ Good: Clear, action-oriented names
-server.tool("getCourse", { courseId: z.string() }, handler);
-server.tool("submitExercise", { lessonId: z.string(), answer: z.string() }, handler);
+server.tool("view-course-details", { courseId: z.string() }, handler);
+server.tool("check-student-work", {
+  courseId: z.string(),
+  lessonNumber: z.number().int(),
+  studentCode: z.string()
+}, handler);
 ```
 
 #### 2. Detailed Descriptions
@@ -65,13 +69,13 @@ ChatGPT uses tool descriptions to decide when to call them. Be specific!
 ```javascript
 // ❌ Bad: Too vague
 {
-  name: "getLesson",
+  name: "start-lesson",
   description: "Gets a lesson"
 }
 
 // ✅ Good: Clear about what and when
 {
-  name: "getLesson",
+  name: "start-lesson",
   description: "Retrieves detailed lesson content including explanation, examples, and interactive exercises for a specific lesson within a course. Use this when the student wants to start or continue learning."
 }
 ```
@@ -80,21 +84,20 @@ ChatGPT uses tool descriptions to decide when to call them. Be specific!
 
 ```javascript
 server.tool(
-  "getLesson",
+  "start-lesson",
   {
     courseId: z.string().regex(/^[a-z0-9-]+$/),
-    lessonId: z.string().regex(/^lesson-\d+$/)
+    lessonNumber: z.number().int().min(1)
   },
-  async ({ courseId, lessonId }) => {
+  async ({ courseId, lessonNumber }) => {
     // Additional validation
     const validCourses = ['python-kids', 'scratch-kids'];
     if (!validCourses.includes(courseId)) {
       throw new Error(`Invalid course: ${courseId}`);
     }
 
-    // Prevent path traversal
-    if (courseId.includes('..') || lessonId.includes('..')) {
-      throw new Error('Invalid path');
+    if (!Number.isInteger(lessonNumber)) {
+      throw new Error('Invalid lesson number');
     }
 
     // Your logic here...
@@ -187,16 +190,16 @@ Invoke MCP server tools from your UI:
 
 ```javascript
 const response = await window.openai.callTool({
-  name: 'getLesson',
+  name: 'start-lesson',
   parameters: {
     courseId: 'python-kids',
-    lessonId: 'lesson-1'
+    lessonNumber: 1
   }
 });
 
-// Parse response
-const data = JSON.parse(response.content[0].text);
-console.log(data); // { success: true, data: {...} }
+// Read structured response
+const data = response.structuredContent;
+console.log(data.lesson); // { id, courseId, number, ... }
 ```
 
 ##### 2. `setWidgetState()`
@@ -514,8 +517,8 @@ Our specific guidelines for LearnKids AI:
 #### 4. Immediate Feedback
 
 ```javascript
-function checkAnswer(answer) {
-  const isCorrect = validateAnswer(answer);
+function checkStudentWork(studentCode) {
+  const isCorrect = validateAnswer(studentCode);
 
   if (isCorrect) {
     // Celebrate immediately!
@@ -552,7 +555,7 @@ function App() {
       parameters: { itemId }
     });
 
-    setSelectedItem(JSON.parse(result.content[0].text));
+    setSelectedItem(result.structuredContent);
     setView('detail');
   };
 
@@ -703,13 +706,11 @@ if (!isInChatGPT) {
 async function safeCallTool(name, parameters) {
   try {
     const result = await window.openai.callTool({ name, parameters });
-    const data = JSON.parse(result.content[0].text);
-
-    if (data.success === false) {
-      throw new Error(data.error || 'Tool call failed');
+    if (result.isError) {
+      throw new Error('Tool call failed');
     }
 
-    return data;
+    return result.structuredContent;
   } catch (error) {
     console.error(`Tool ${name} failed:`, error);
 

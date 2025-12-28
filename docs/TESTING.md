@@ -41,7 +41,7 @@ Use MCP Inspector for manual tool testing:
 npx @modelcontextprotocol/inspector node mcp-server/index.js
 ```
 
-#### Test: getCourses()
+#### Test: get-courses()
 
 **Input:**
 ```json
@@ -51,8 +51,7 @@ npx @modelcontextprotocol/inspector node mcp-server/index.js
 **Expected Output:**
 ```json
 {
-  "success": true,
-  "data": {
+  "structuredContent": {
     "courses": [
       {
         "id": "python-kids",
@@ -66,28 +65,28 @@ npx @modelcontextprotocol/inspector node mcp-server/index.js
 ```
 
 **Validation:**
-- [ ] Returns success: true
-- [ ] Contains course array
+- [ ] Contains `structuredContent.courses`
 - [ ] Each course has required fields (id, title, emoji)
 - [ ] Response time < 500ms
 
-#### Test: getLesson()
+#### Test: start-lesson()
 
 **Input:**
 ```json
 {
   "courseId": "python-kids",
-  "lessonId": "lesson-1"
+  "lessonNumber": 1
 }
 ```
 
 **Expected Output:**
 ```json
 {
-  "success": true,
-  "data": {
+  "structuredContent": {
     "lesson": {
       "id": "lesson-1",
+      "courseId": "python-kids",
+      "number": 1,
       "title": "Magic Variables 🪄",
       "content": { ... },
       "exercise": { ... }
@@ -103,29 +102,30 @@ npx @modelcontextprotocol/inspector node mcp-server/index.js
 - [ ] Exercise has template and validation
 - [ ] Response time < 500ms
 
-#### Test: checkAnswer() - Correct
+#### Test: check-student-work() - Correct
 
 **Input:**
 ```json
 {
   "courseId": "python-kids",
-  "lessonId": "lesson-1",
-  "answer": "favorite_animal = \"cat\"\nprint(favorite_animal)"
+  "lessonNumber": 1,
+  "studentCode": "favorite_animal = \"cat\"\nprint(favorite_animal)"
 }
 ```
 
 **Expected Output:**
 ```json
 {
-  "success": true,
-  "data": {
-    "correct": true,
-    "message": "🎉 Amazing! ...",
-    "reward": {
-      "stars": 1,
-      "badge": "First Variable"
-    },
-    "nextLesson": "lesson-2"
+  "structuredContent": {
+    "validation": {
+      "correct": true,
+      "message": "🎉 Amazing! ...",
+      "reward": {
+        "stars": 1,
+        "badge": "First Variable"
+      },
+      "nextLesson": "lesson-2"
+    }
   }
 }
 ```
@@ -136,25 +136,26 @@ npx @modelcontextprotocol/inspector node mcp-server/index.js
 - [ ] Includes reward info
 - [ ] Suggests next lesson
 
-#### Test: checkAnswer() - Incorrect
+#### Test: check-student-work() - Incorrect
 
 **Input:**
 ```json
 {
   "courseId": "python-kids",
-  "lessonId": "lesson-1",
-  "answer": "wrong code"
+  "lessonNumber": 1,
+  "studentCode": "wrong code"
 }
 ```
 
 **Expected Output:**
 ```json
 {
-  "success": true,
-  "data": {
-    "correct": false,
-    "message": "Not quite right...",
-    "hint": "Remember to use quotes..."
+  "structuredContent": {
+    "validation": {
+      "correct": false,
+      "message": "Not quite right...",
+      "hint": "Remember to use quotes..."
+    }
   }
 }
 ```
@@ -170,21 +171,21 @@ npx @modelcontextprotocol/inspector node mcp-server/index.js
 ```json
 {
   "courseId": "../../../etc/passwd",
-  "lessonId": "lesson-1"
+  "lessonNumber": 1
 }
 ```
 
-**Expected:** Error with COURSE_NOT_FOUND
+**Expected:** `isError: true` with "Course not found" message
 
 **Invalid Lesson ID:**
 ```json
 {
   "courseId": "python-kids",
-  "lessonId": "lesson-999"
+  "lessonNumber": 999
 }
 ```
 
-**Expected:** Error with LESSON_NOT_FOUND
+**Expected:** `isError: true` with "Lesson not found" message
 
 ---
 
@@ -429,19 +430,18 @@ Before each deployment, verify:
 ```javascript
 // mcp-server/tests/tools.test.js
 describe('MCP Tools', () => {
-  test('getCourses returns courses', async () => {
-    const result = await getCourses();
-    expect(result.success).toBe(true);
-    expect(result.data.courses).toHaveLength(1);
+  test('get-courses returns courses', async () => {
+    const result = await callTool('get-courses', {});
+    expect(result.structuredContent.courses).toHaveLength(1);
   });
 
-  test('checkAnswer validates correctly', async () => {
-    const result = await checkAnswer({
+  test('check-student-work validates correctly', async () => {
+    const result = await callTool('check-student-work', {
       courseId: 'python-kids',
-      lessonId: 'lesson-1',
-      answer: 'favorite_animal = "cat"'
+      lessonNumber: 1,
+      studentCode: 'favorite_animal = "cat"'
     });
-    expect(result.correct).toBe(true);
+    expect(result.structuredContent.validation.correct).toBe(true);
   });
 });
 ```

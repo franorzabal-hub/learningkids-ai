@@ -4,20 +4,20 @@ The frontend UI for LearnKids AI that runs inside ChatGPT as an iframe.
 
 ## Overview
 
-This is a single-page React application that provides an interactive learning interface for children. It communicates with ChatGPT via the `window.openai` API and with the MCP server through tool calls.
+This is the build output for the LearnKids widget. Source code lives in `widget-src/` and is bundled with Vite into `web-component/dist/`. It communicates with ChatGPT via the `window.openai` API and with the MCP server through tool calls.
 
 ## Architecture
 
 ```
-index.html (Single File App)
-├─ React 18 (via CDN)
-├─ Babel Standalone (JSX support)
-├─ styles.css (Kid-friendly design)
-└─ Application Components
-   ├─ CourseCatalog (Inline mode)
-   ├─ LessonViewer (Fullscreen mode)
-   ├─ Code Editor
-   └─ Progress Tracking
+widget-src/ (React + Vite)
+├─ App.tsx
+├─ hooks/
+└─ styles.css
+        ↓ build
+web-component/dist/ (served by the backend)
+├─ index.html
+├─ widget.css
+└─ widget.js
 ```
 
 ## Key Features
@@ -57,16 +57,15 @@ Students can ask questions to ChatGPT while viewing lessons:
 
 ### Local Testing
 
-1. Open `index.html` in a browser:
+1. Start the Vite dev server (source in `widget-src/`):
 ```bash
-open web-component/index.html
+npm run dev:widget
 ```
 
-2. Or use a local server:
+2. Or build and serve the production bundle:
 ```bash
-cd web-component
-python3 -m http.server 8000
-# Visit http://localhost:8000
+npm run build:widget
+npx serve web-component/dist
 ```
 
 **Note**: The `window.openai` API will not be available outside ChatGPT, so you'll need to mock it for local testing.
@@ -80,15 +79,11 @@ window.openai = {
   callTool: async ({ name, parameters }) => {
     console.log('Mock callTool:', name, parameters);
     // Return mock data based on tool name
-    if (name === 'getCourses') {
+    if (name === 'get-courses') {
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: true,
-            data: { courses: [/* mock courses */] }
-          })
-        }]
+        structuredContent: {
+          courses: [/* mock courses */]
+        }
       };
     }
   },
@@ -215,41 +210,41 @@ User-friendly error display with retry option.
 
 ## Tool Integration
 
-### getCourses()
+### get-courses()
 
 Loads course catalog on app initialization.
 
 ```javascript
-const data = await callTool('getCourses');
+const data = await callTool('get-courses');
 setCourses(data.courses);
 ```
 
-### getLesson(courseId, lessonId)
+### start-lesson(courseId, lessonNumber)
 
 Loads lesson content when user starts or continues.
 
 ```javascript
-const data = await callTool('getLesson', {
+const data = await callTool('start-lesson', {
   courseId: 'python-kids',
-  lessonId: 'lesson-1'
+  lessonNumber: 1
 });
 setCurrentLesson(data.lesson);
 ```
 
-### checkAnswer(courseId, lessonId, answer)
+### check-student-work(courseId, lessonNumber, studentCode)
 
 Validates user's code submission.
 
 ```javascript
-const data = await callTool('checkAnswer', {
+const data = await callTool('check-student-work', {
   courseId,
-  lessonId: 'lesson-1',
-  answer: userCode
+  lessonNumber: 1,
+  studentCode: userCode
 });
 
-if (data.correct) {
+if (data.validation?.correct || data.correct) {
   // Show success, update progress
-  saveProgress(lessonId);
+  saveProgress(`lesson-${lessonNumber}`);
 }
 ```
 
@@ -259,7 +254,7 @@ if (data.correct) {
 
 ```javascript
 try {
-  const data = await callTool('getCourses');
+  const data = await callTool('get-courses');
 } catch (error) {
   setView('error');
   setError('Could not load courses. Please try again!');
@@ -344,7 +339,7 @@ Quick config:
 ### App doesn't load
 
 - Check console for errors
-- Verify React/Babel loaded from CDN
+- Verify `widget.js` and `widget.css` are loading
 - Check Content Security Policy
 
 ### Tools not working
@@ -361,7 +356,7 @@ Quick config:
 
 ### Styles not applying
 
-- Check `styles.css` is loaded
+- Check `widget.css` is loaded
 - Verify correct class names
 - Check for CSS conflicts
 

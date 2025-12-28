@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createSessionStore } from '../../../lib/sessionStore.js';
 
 describe('createSessionStore', () => {
@@ -38,5 +38,25 @@ describe('createSessionStore', () => {
 
     expect(result.session).toBeNull();
     expect(result.promoted).toBe(false);
+  });
+
+  it('uses lastSeen for stale cleanup', () => {
+    vi.useFakeTimers();
+    const start = new Date('2025-01-01T00:00:00Z');
+    vi.setSystemTime(start);
+
+    const store = createSessionStore();
+    const session = store.addSession('session-1', { temp: false });
+
+    vi.setSystemTime(new Date(start.getTime() + 1000));
+    store.touchSession(session);
+
+    vi.setSystemTime(new Date(start.getTime() + 5000));
+    const cleaned = store.cleanupStale(3000);
+
+    expect(cleaned).toBe(1);
+    expect(store.sessions.size).toBe(0);
+
+    vi.useRealTimers();
   });
 });

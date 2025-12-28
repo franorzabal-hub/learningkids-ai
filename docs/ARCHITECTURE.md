@@ -17,7 +17,7 @@ LearnKids AI is a ChatGPT-native learning platform built using OpenAI's Apps SDK
 │  ┌───────────────────────────────────────────────────┐  │
 │  │         User Interface (iframe)                   │  │
 │  │  ┌─────────────────────────────────────────────┐  │  │
-│  │  │  Web Component (index.html)                 │  │  │
+│  │  │  Widget (Vite build)                        │  │  │
 │  │  │  - Course Catalog View                      │  │  │
 │  │  │  - Lesson Viewer                            │  │  │
 │  │  │  - Exercise Interface                       │  │  │
@@ -37,12 +37,10 @@ LearnKids AI is a ChatGPT-native learning platform built using OpenAI's Apps SDK
 │                    MCP SERVER                           │
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  Tool Handler Layer                               │  │
-│  │  ├─ getCourses()                                  │  │
-│  │  ├─ getCourse(id)                                 │  │
-│  │  ├─ getLesson(courseId, lessonId)                │  │
-│  │  ├─ checkAnswer(lessonId, answer)                │  │
-│  │  ├─ saveProgress(lessonId)                       │  │
-│  │  └─ getProgress()                                 │  │
+│  │  ├─ get-courses()                                  │  │
+│  │  ├─ view-course-details(courseId)                  │  │
+│  │  ├─ start-lesson(courseId, lessonNumber)            │  │
+│  │  └─ check-student-work(courseId, lessonNumber, studentCode) │  │
 │  └───────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  Content Management Layer                         │  │
@@ -69,9 +67,9 @@ LearnKids AI is a ChatGPT-native learning platform built using OpenAI's Apps SDK
 
 ### 1. Web Component (Frontend)
 
-**Technology**: Vanilla React 18 (loaded via CDN)
+**Technology**: React 19 + Vite (built for ChatGPT sandbox)
 **Purpose**: Render UI and handle user interactions
-**Location**: `web-component/index.html`
+**Location**: `widget-src/` (source), `web-component/dist/` (build output)
 
 #### Key Responsibilities:
 - Display course catalog in Inline mode
@@ -115,10 +113,10 @@ window.openai.setWidgetState({
 
 #### Tool Definitions:
 
-##### `getCourses()`
+##### `get-courses()`
 ```json
 {
-  "name": "getCourses",
+  "name": "get-courses",
   "description": "Returns list of all available courses",
   "inputSchema": {
     "type": "object",
@@ -144,18 +142,18 @@ window.openai.setWidgetState({
 }
 ```
 
-##### `getLesson(courseId, lessonId)`
+##### `start-lesson(courseId, lessonNumber)`
 ```json
 {
-  "name": "getLesson",
+  "name": "start-lesson",
   "description": "Retrieves a specific lesson with content and exercises",
   "inputSchema": {
     "type": "object",
     "properties": {
       "courseId": { "type": "string" },
-      "lessonId": { "type": "string" }
+      "lessonNumber": { "type": "number" }
     },
-    "required": ["courseId", "lessonId"]
+    "required": ["courseId", "lessonNumber"]
   }
 }
 ```
@@ -163,40 +161,30 @@ window.openai.setWidgetState({
 **Returns**:
 ```json
 {
-  "id": "lesson-1",
-  "title": "Magic Variables",
-  "character": "🧙‍♂️",
-  "explanation": "A variable is like a box...",
-  "image": "/assets/images/variable-box.png",
-  "examples": ["name = 'Ana'", "age = 8"],
-  "exercise": {
-    "instruction": "Create a variable with your name",
-    "template": "my_name = \"___\"",
-    "hint": "Write your name between quotes",
-    "validation": {
-      "type": "contains_string",
-      "pattern": "my_name\\s*=\\s*[\"'].+[\"']"
-    }
-  },
-  "reward": {
-    "stars": 1,
-    "message": "Amazing! You created your first variable! 🎉"
+  "lesson": {
+    "id": "lesson-1",
+    "courseId": "python-kids",
+    "number": 1,
+    "title": "Magic Variables",
+    "content": { "...": "..." },
+    "exercise": { "...": "..." }
   }
 }
 ```
 
-##### `checkAnswer(lessonId, answer)`
+##### `check-student-work(courseId, lessonNumber, studentCode)`
 ```json
 {
-  "name": "checkAnswer",
+  "name": "check-student-work",
   "description": "Validates student's code answer",
   "inputSchema": {
     "type": "object",
     "properties": {
-      "lessonId": { "type": "string" },
-      "answer": { "type": "string" }
+      "courseId": { "type": "string" },
+      "lessonNumber": { "type": "number" },
+      "studentCode": { "type": "string" }
     },
-    "required": ["lessonId", "answer"]
+    "required": ["courseId", "lessonNumber", "studentCode"]
   }
 }
 ```
@@ -204,10 +192,12 @@ window.openai.setWidgetState({
 **Returns**:
 ```json
 {
-  "correct": true,
-  "message": "Excellent work! 🌟",
-  "hint": null,
-  "nextLesson": "lesson-2"
+  "validation": {
+    "correct": true,
+    "message": "Excellent work! 🌟",
+    "hint": null,
+    "nextLesson": "lesson-2"
+  }
 }
 ```
 
@@ -285,9 +275,9 @@ User opens app
     ↓
 Web Component mounts
     ↓
-useEffect() calls window.openai.callTool({name: 'getCourses'})
+useEffect() calls window.openai.callTool({name: 'get-courses'})
     ↓
-ChatGPT → MCP Server → getCourses()
+ChatGPT → MCP Server → get-courses()
     ↓
 MCP reads courses.json
     ↓
@@ -302,11 +292,11 @@ Web Component renders course cards (Inline mode)
 User clicks "Start Learning" on Python course
     ↓
 Web Component calls window.openai.callTool({
-  name: 'getLesson',
-  parameters: { courseId: 'python-kids', lessonId: 'lesson-1' }
+  name: 'start-lesson',
+  parameters: { courseId: 'python-kids', lessonNumber: 1 }
 })
     ↓
-ChatGPT → MCP Server → getLesson()
+ChatGPT → MCP Server → start-lesson()
     ↓
 MCP reads lessons/python-kids.json
     ↓
@@ -329,15 +319,15 @@ Clicks "Check Answer"
 Web Component reads textarea value
     ↓
 Calls window.openai.callTool({
-  name: 'checkAnswer',
-  parameters: { lessonId: 'lesson-1', answer: userCode }
+  name: 'check-student-work',
+  parameters: { courseId: 'python-kids', lessonNumber: 1, studentCode: userCode }
 })
     ↓
-MCP Server → checkAnswer()
+MCP Server → check-student-work()
     ↓
 Validates answer against lesson's validation rules
     ↓
-Returns { correct: true, message: "Great!" }
+Returns validation payload { correct: true, message: "Great!" }
     ↓
 Web Component shows success message
     ↓
@@ -403,21 +393,18 @@ User can continue chatting while app stays visible (Fullscreen)
 - ❌ Can't track users across devices
 - ✅ For MVP: acceptable, kids likely use same conversation
 
-### Why Vanilla React (CDN) Instead of Build Tool?
+### Why Vite Build for the Widget?
 
-**Decision**: Load React via CDN, no webpack/vite/etc.
+**Decision**: Build the widget with Vite and ship `web-component/dist`.
 
 **Rationale**:
-- ✅ Single HTML file (easier to host)
-- ✅ No build step (faster iteration)
-- ✅ Smaller deployment package
-- ✅ Easier for others to understand/fork
+- ✅ Avoids runtime Babel/unsafe-eval in the ChatGPT sandbox
+- ✅ Bundles JS/CSS into predictable assets
+- ✅ Fast local dev server and hot reload
 
 **Trade-offs**:
-- ❌ No JSX (use React.createElement or babel-standalone)
-- ❌ No tree-shaking
-- ❌ No TypeScript
-- ✅ For MVP: acceptable, we chose babel-standalone for JSX support
+- ❌ Requires a build step before deploy
+- ❌ Slightly larger repo footprint (built assets)
 
 ### Why Node.js for MCP Server?
 
@@ -436,11 +423,13 @@ User can continue chatting while app stays visible (Fullscreen)
 ### Input Validation
 
 ```javascript
-// Always validate lesson IDs
-function getLesson(courseId, lessonId) {
-  // Prevent path traversal
-  if (courseId.includes('..') || lessonId.includes('..')) {
+// Always validate lesson inputs
+function startLesson(courseId, lessonNumber) {
+  if (courseId.includes('..')) {
     throw new Error('Invalid ID');
+  }
+  if (!Number.isInteger(lessonNumber) || lessonNumber < 1) {
+    throw new Error('Invalid lesson number');
   }
 
   // Whitelist validation
@@ -466,10 +455,10 @@ function validateAnswer(userCode, expectedPattern) {
 ### Content Security Policy
 
 ```html
-<!-- In web-component/index.html -->
+<!-- Example strict CSP for widget hosting -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
-               script-src 'self' https://unpkg.com 'unsafe-inline' 'unsafe-eval';
+               script-src 'self';
                style-src 'self' 'unsafe-inline';">
 ```
 
@@ -480,12 +469,12 @@ function validateAnswer(userCode, expectedPattern) {
 ```javascript
 // Don't load all lessons upfront
 // Load on-demand when user clicks
-async function loadLesson(lessonId) {
+async function loadLesson(courseId, lessonNumber) {
   const result = await window.openai.callTool({
-    name: 'getLesson',
-    parameters: { lessonId }
+    name: 'start-lesson',
+    parameters: { courseId, lessonNumber }
   });
-  return JSON.parse(result.content[0].text);
+  return result.structuredContent?.lesson;
 }
 ```
 
@@ -536,7 +525,7 @@ async function callTool(name, params) {
 ### Missing Content
 
 ```javascript
-function getLesson(courseId, lessonId) {
+function startLesson(courseId, lessonNumber) {
   const course = courses.find(c => c.id === courseId);
   if (!course) {
     return {

@@ -52,20 +52,20 @@ See [../docs/DEPLOYMENT_VERCEL.md](../docs/DEPLOYMENT_VERCEL.md) for deployment 
 
 ## Tools Provided
 
-### `getCourses()`
+### `get-courses()`
 
 Returns list of all available courses.
 
 **Returns:**
 ```json
 {
-  "success": true,
-  "data": {
+  "structuredContent": {
     "courses": [
       {
         "id": "python-kids",
         "title": "Python for Kids",
         "emoji": "🐍",
+        "color": "#8B5CF6",
         "description": "...",
         "totalLessons": 5,
         "estimatedDuration": "25 minutes"
@@ -75,7 +75,7 @@ Returns list of all available courses.
 }
 ```
 
-### `getCourse(courseId)`
+### `view-course-details(courseId)`
 
 Gets detailed information about a specific course.
 
@@ -85,8 +85,7 @@ Gets detailed information about a specific course.
 **Returns:**
 ```json
 {
-  "success": true,
-  "data": {
+  "structuredContent": {
     "course": {
       "id": "python-kids",
       "title": "Python for Kids",
@@ -97,72 +96,49 @@ Gets detailed information about a specific course.
 }
 ```
 
-### `getLesson(courseId, lessonId)`
+### `start-lesson(courseId, lessonNumber)`
 
 Retrieves complete lesson content including exercises.
 
 **Parameters:**
 - `courseId` (string): Course identifier
-- `lessonId` (string): Lesson identifier (e.g., "lesson-1")
+- `lessonNumber` (number): Lesson number (e.g., 1)
 
 **Returns:**
 ```json
 {
-  "success": true,
-  "data": {
+  "structuredContent": {
     "lesson": {
       "id": "lesson-1",
+      "courseId": "python-kids",
+      "number": 1,
       "title": "Magic Variables",
-      "content": {
-        "character": "🧙‍♂️",
-        "explanation": "...",
-        "examples": [...]
-      },
-      "exercise": {
-        "instruction": "...",
-        "template": "...",
-        "hint": "..."
-      },
-      "reward": {
-        "stars": 1,
-        "badge": "First Variable",
-        "message": "..."
-      }
+      "content": { "...": "..." },
+      "exercise": { "...": "..." }
     }
   }
 }
 ```
 
-### `checkAnswer(courseId, lessonId, answer)`
+### `check-student-work(courseId, lessonNumber, studentCode)`
 
 Validates a student's code submission.
 
 **Parameters:**
 - `courseId` (string): Course identifier
-- `lessonId` (string): Lesson identifier
-- `answer` (string): Student's code submission
+- `lessonNumber` (number): Lesson number
+- `studentCode` (string): Student's code submission
 
-**Returns (Correct):**
+**Returns:**
 ```json
 {
-  "success": true,
-  "data": {
-    "correct": true,
-    "message": "🎉 Amazing! You got it!",
-    "reward": { "stars": 1, "badge": "..." },
-    "nextLesson": "lesson-2"
-  }
-}
-```
-
-**Returns (Incorrect):**
-```json
-{
-  "success": true,
-  "data": {
-    "correct": false,
-    "message": "Not quite right. Try again!",
-    "hint": "Remember to use quotes for text!"
+  "structuredContent": {
+    "validation": {
+      "correct": true,
+      "message": "🎉 Amazing! You got it!",
+      "reward": { "stars": 1, "badge": "..." },
+      "nextLesson": "lesson-2"
+    }
   }
 }
 ```
@@ -224,11 +200,7 @@ All tools return structured error responses:
 }
 ```
 
-Error codes:
-- `COURSE_NOT_FOUND` - Invalid course ID
-- `LESSON_NOT_FOUND` - Invalid lesson ID
-- `INVALID_LESSON_ID` - Malformed lesson ID
-- `INTERNAL_ERROR` - Server error
+Errors are returned with `isError: true` and a human-readable message in `content[0].text`.
 
 ## Logging
 
@@ -237,8 +209,8 @@ The server logs important events:
 ```
 [LearnKids] Setting up MCP tools...
 [LearnKids] Loaded 1 courses
-[LearnKids] Tool called: getCourses
-[LearnKids] Tool called: getLesson { courseId: 'python-kids', lessonId: 'lesson-1' }
+[LearnKids] Tool called: get-courses
+[LearnKids] Tool called: start-lesson { courseId: 'python-kids', lessonNumber: 1 }
 ```
 
 View logs in Vercel Dashboard: https://vercel.com/francisco-orzabals-projects/learningkids-ai

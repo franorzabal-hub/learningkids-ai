@@ -18,6 +18,7 @@ RUN npm ci --only=production && npm cache clean --force
 
 # Copy application code
 COPY server.js ./
+COPY lib ./lib
 COPY mcp-server ./mcp-server
 
 # Copy pre-built widget (run `npm run build:widget` locally before deploying)
