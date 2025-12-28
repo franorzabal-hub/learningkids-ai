@@ -23,6 +23,7 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
   ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
@@ -233,6 +234,24 @@ function createMcpServer() {
           mimeType: 'text/html+skybridge',
           _meta: {
             'openai/outputTemplate': WIDGET_URI,
+            'openai/widgetAccessible': true,
+          },
+        },
+      ],
+    };
+  });
+
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+    return {
+      resourceTemplates: [
+        {
+          uriTemplate: WIDGET_URI,
+          name: 'LearnKids Widget',
+          description: 'Interactive learning platform widget for kids education',
+          mimeType: 'text/html+skybridge',
+          _meta: {
+            'openai/outputTemplate': WIDGET_URI,
+            'openai/widgetAccessible': true,
           },
         },
       ],
@@ -255,6 +274,7 @@ function createMcpServer() {
             text: html,
             _meta: {
               'openai/outputTemplate': WIDGET_URI,
+              'openai/widgetAccessible': true,
             },
           },
         ],
@@ -281,6 +301,8 @@ function createMcpServer() {
             additionalProperties: false,
           },
           annotations: {
+            destructiveHint: false,
+            openWorldHint: false,
             readOnlyHint: true,
           },
           securitySchemes: [{ type: 'noauth' }],
@@ -308,6 +330,8 @@ function createMcpServer() {
             additionalProperties: false,
           },
           annotations: {
+            destructiveHint: false,
+            openWorldHint: false,
             readOnlyHint: true,
           },
           securitySchemes: [{ type: 'noauth' }],
@@ -335,6 +359,8 @@ function createMcpServer() {
             additionalProperties: false,
           },
           annotations: {
+            destructiveHint: false,
+            openWorldHint: false,
             readOnlyHint: true,
           },
           securitySchemes: [{ type: 'noauth' }],
@@ -368,6 +394,8 @@ function createMcpServer() {
             additionalProperties: false,
           },
           annotations: {
+            destructiveHint: false,
+            openWorldHint: false,
             readOnlyHint: true,
           },
           securitySchemes: [{ type: 'noauth' }],
@@ -406,6 +434,8 @@ function createMcpServer() {
             additionalProperties: false,
           },
           annotations: {
+            destructiveHint: false,
+            openWorldHint: false,
             readOnlyHint: true, // Validates but doesn't persist or execute code
           },
           securitySchemes: [{ type: 'noauth' }],
@@ -672,8 +702,35 @@ function createMcpServer() {
 async function handleSseRequest(req, res, url) {
   console.log('[LearnKids] New SSE connection request');
 
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type');
+
   const server = createMcpServer();
   const transport = new SSEServerTransport(POST_PATH, res);
+  let session = null;
+  let closing = false;
+
+  const closeSession = async () => {
+    if (closing) {
+      return;
+    }
+    closing = true;
+    if (session && sessionStore.removeSession(session)) {
+      console.log(`[LearnKids] SSE connection closed for ${session.key}`);
+    }
+    try {
+      await server.close();
+    } catch (closeError) {
+      console.error('[LearnKids] Error closing MCP server:', closeError);
+    }
+  };
+
+  transport.onerror = (error) => {
+    console.error('[LearnKids] SSE transport error:', error);
+  };
+  transport.onclose = () => {
+    void closeSession();
+  };
 
   try {
     await server.connect(transport);
@@ -684,7 +741,7 @@ async function handleSseRequest(req, res, url) {
     // Store with a temporary key that we'll update when first POST arrives
     const transportSessionId = transport.sessionId;
     const tempKey = transportSessionId || `temp-${randomUUID()}`;
-    const session = sessionStore.addSession(tempKey, {
+    session = sessionStore.addSession(tempKey, {
       server,
       transport,
       createdAt: Date.now(),
@@ -697,10 +754,7 @@ async function handleSseRequest(req, res, url) {
 
     // Clean up session when connection closes
     req.on('close', () => {
-      const key = session.key;
-      if (sessionStore.removeSession(session)) {
-        console.log(`[LearnKids] SSE connection closed for ${key}`);
-      }
+      void closeSession();
     });
   } catch (error) {
     console.error('[LearnKids] SSE connection error:', error);
@@ -711,8 +765,30 @@ async function handleSseRequest(req, res, url) {
 }
 
 async function handlePostMessage(req, res, url) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type');
+
   const sessionId = url.searchParams.get('sessionId');
   console.log(`[LearnKids] POST message - sessionId: ${sessionId}`);
+
+  if (!sessionId) {
+    res.writeHead(400).end('Missing sessionId');
+    return;
+  }
+
+  // Try to find session by exact sessionId first
+  const { session, promoted, previousKey } = sessionStore.promoteSession(sessionId);
+
+  if (promoted) {
+    console.log(`[LearnKids] Promoting temp session ${previousKey} to ${sessionId}`);
+  }
+
+  if (!session) {
+    console.error(`[LearnKids] No session available for: ${sessionId}`);
+    console.log('[LearnKids] Active sessions:', sessionStore.listKeys());
+    res.writeHead(404).end('Session not found');
+    return;
+  }
 
   // Read request body
   const chunks = [];
@@ -720,12 +796,7 @@ async function handlePostMessage(req, res, url) {
   for await (const chunk of req) {
     bodySize += chunk.length;
     if (bodySize > MAX_BODY_BYTES) {
-      res.writeHead(413, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: '2.0',
-        error: { code: -32602, message: 'Payload too large' },
-        id: null
-      }));
+      res.writeHead(413).end('Payload too large');
       req.destroy();
       return;
     }
@@ -736,68 +807,22 @@ async function handlePostMessage(req, res, url) {
   console.log('[LearnKids] Message body size:', body.length);
 
   try {
-    // Parse the JSON-RPC message
     let message;
     try {
       message = JSON.parse(body);
     } catch (parseError) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: '2.0',
-        error: { code: -32700, message: 'Parse error' },
-        id: null
-      }));
-      return;
-    }
-
-    if (!sessionId) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: '2.0',
-        error: { code: -32602, message: 'Missing sessionId' },
-        id: message.id
-      }));
-      return;
-    }
-
-    // Try to find session by exact sessionId first
-    const { session, promoted, previousKey } = sessionStore.promoteSession(sessionId);
-
-    if (promoted) {
-      console.log(`[LearnKids] Promoting temp session ${previousKey} to ${sessionId}`);
-    }
-
-    if (!session) {
-      console.error(`[LearnKids] No session available for: ${sessionId}`);
-      console.log('[LearnKids] Active sessions:', sessionStore.listKeys());
-
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        jsonrpc: '2.0',
-        error: { code: -32001, message: 'Session not found' },
-        id: message.id
-      }));
+      res.writeHead(400).end('Parse error');
       return;
     }
 
     sessionStore.touchSession(session);
 
-    // Handle the message through the transport
-    await session.transport.handleMessage(message);
-
-    res.writeHead(200, {
-      'Access-Control-Allow-Origin': '*',
-      'Content-Type': 'application/json',
-    });
-    res.end(JSON.stringify({ received: true }));
+    await session.transport.handlePostMessage(req, res, message);
   } catch (error) {
     console.error('[LearnKids] Error handling message:', error);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      jsonrpc: '2.0',
-      error: { code: -32603, message: 'Internal error: ' + error.message },
-      id: null
-    }));
+    if (!res.headersSent) {
+      res.writeHead(500).end('Failed to process message');
+    }
   }
 }
 
@@ -863,7 +888,13 @@ const httpServer = createServer(async (req, res) => {
       mcp: {
         endpoint: '/mcp',
         transport: 'SSE',
-        tools: ['get-courses', 'view-course-details', 'start-lesson', 'check-student-work'],
+        tools: [
+          'get-courses',
+          'view-course-details',
+          'get-course-details',
+          'start-lesson',
+          'check-student-work'
+        ],
         resources: [WIDGET_URI],
       },
       openai: {
